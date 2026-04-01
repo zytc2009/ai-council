@@ -70,13 +70,282 @@ def _pick_summarizer(config: Config) -> str:
     return next(iter(config.agents))
 
 
+# ── Interactive Wizard Helper Functions ───────────────────────────────────────
+
+def _input_idea() -> str:
+    """Collect user idea with multi-line input.
+
+    User types lines and ends with an empty line.
+    """
+    console.print("\n[bold cyan][第1步][/bold cyan] 请输入您的问题/想法（直接回车结束输入）：")
+    console.print("[dim]提示：输入多行内容，空行表示结束\n[/dim]")
+
+    lines = []
+    line_num = 1
+    while True:
+        prompt = f"> "
+        try:
+            line = console.input(prompt)
+            if line.strip() == "":
+                # Empty line ends input
+                if lines:
+                    break
+                else:
+                    console.print("[yellow]请输入内容，或输入空行两次退出[/yellow]")
+                    continue
+            lines.append(line)
+            line_num += 1
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[yellow]输入取消[/yellow]")
+            return ""
+
+    return "\n".join(lines)
+
+
+def _select_clis(available_clis: list) -> list[str]:
+    """Let user select which CLIs to participate in discussion.
+
+    Args:
+        available_clis: List of CLIDetected objects
+
+    Returns:
+        List of selected CLI IDs
+    """
+    from lib.cli_detector import format_cli_status
+
+    installed = [cli for cli in available_clis if cli.is_installed]
+
+    if not installed:
+        console.print("[red]错误：没有检测到可用的 AI CLI[/red]")
+        return []
+
+    console.print(f"\n[bold cyan][第3步][/bold cyan] 选择参与讨论的 AI（输入编号，多个用逗号分隔）：")
+
+    for i, cli in enumerate(installed, 1):
+        status = format_cli_status(cli)
+        console.print(f"  [{i}] {status}")
+
+    while True:
+        choice = console.input("\n选择: ").strip()
+
+        if not choice:
+            # Default to all
+            return [cli.cli_id for cli in installed]
+
+        try:
+            indices = [int(x.strip()) for x in choice.split(",")]
+            selected = []
+            for idx in indices:
+                if 1 <= idx <= len(installed):
+                    selected.append(installed[idx - 1].cli_id)
+                else:
+                    console.print(f"[red]无效编号: {idx}[/red]")
+                    break
+            else:
+                if selected:
+                    return selected
+        except ValueError:
+            console.print("[red]请输入数字编号，用逗号分隔[/red]")
+
+
+def _select_moderator(selected_agents: list[str], config: Config) -> str:
+    """Let user select a moderator from selected agents.
+
+    Args:
+        selected_agents: List of selected agent IDs
+        config: Config object with agent info
+
+    Returns:
+        Selected moderator agent ID
+    """
+    console.print(f"\n[bold cyan][第4步][/bold cyan] 选择主持人：")
+
+    agents_info = []
+    for i, agent_id in enumerate(selected_agents, 1):
+        if agent_id in config.agents:
+            agent = config.agents[agent_id]
+        else:
+            # For CLI-only agents not in config, create minimal info
+            agent = type('obj', (object,), {
+                'name': agent_id,
+                'strengths': '通用能力'
+            })()
+        agents_info.append((agent_id, agent))
+        console.print(f"  [{i}] {agent.name} - 擅长：{agent.strengths}")
+
+    while True:
+        choice = console.input("\n选择: ").strip()
+
+        try:
+            idx = int(choice)
+            if 1 <= idx <= len(agents_info):
+                selected_id = agents_info[idx - 1][0]
+                agent_name = agents_info[idx - 1][1].name
+                console.print(f"[green]✓ {agent_name} 被选为主持人[/green]\n")
+                return selected_id
+            else:
+                console.print(f"[red]请输入 1-{len(agents_info)} 之间的数字[/red]")
+        except ValueError:
+            console.print("[red]请输入数字编号[/red]")
+
+
+def _confirm_config() -> dict:
+    """Let user confirm discussion configuration.
+
+    Returns:
+        Dict with configuration options
+    """
+    console.print(f"\n[bold cyan][第5步][/bold cyan] 讨论配置：")
+
+    max_rounds_str = console.input("  最大轮次 [3]: ").strip()
+    max_rounds = int(max_rounds_str) if max_rounds_str.isdigit() else 3
+
+    config = {
+        "max_rounds": max(max_rounds, 1),
+    }
+
+    return config
+
+
+def _run_interactive_wizard():
+    """Run the interactive wizard when no command is provided."""
+    from datetime import datetime
+    from lib.cli_detector import CLIDetector
+    from lib.streaming_runner import StreamingRunner
+
+    # Welcome header
+    console.print("\n[bold green]══════════════════════════════════════════════════════[/bold green]")
+    console.print("[bold green]  🤖 Multi-AI Discussion Council[/bold green]")
+    console.print("[bold green]══════════════════════════════════════════════════════[/bold green]")
+
+    # Step 1: Input idea
+    user_idea = _input_idea()
+    if not user_idea:
+        console.print("[yellow]未输入内容，退出[/yellow]")
+        return
+
+    # Step 2: Detect CLIs
+    console.print("\n[bold cyan][第2步][/bold cyan] 检测本地可用的 AI CLI...\n")
+    detector = CLIDetector()
+    all_clis = detector.detect_all()
+
+    for cli in all_clis:
+        from lib.cli_detector import format_cli_status
+        console.print(f"  {format_cli_status(cli)}")
+
+    installed = [cli for cli in all_clis if cli.is_installed]
+
+    if not installed:
+        console.print("\n[red]错误：未检测到任何可用的 AI CLI[/red]")
+        console.print("[dim]请确保已安装至少一个 AI CLI（claude, codex, kimi, gemini）[/dim]")
+        return
+
+    # Step 3: Select CLIs
+    selected_ids = _select_clis(all_clis)
+    if not selected_ids:
+        return
+
+    # Load config and update with detected CLIs
+    config = Config(CONFIG_DIR)
+
+    # Add detected CLIs to config if not already present
+    for cli in installed:
+        if cli.cli_id not in config.agents:
+            # Create a temporary agent config
+            from lib.config import AgentConfig
+            config.agents[cli.cli_id] = AgentConfig(
+                name=cli.name,
+                cli=cli.cli_id,
+                command=cli.command,
+                prompt_method="file",
+                max_tokens=4000,
+                timeout=120,
+                strengths=cli.strengths,
+                cost_tier="medium",
+            )
+
+    # Validate selected agents
+    valid_agents = []
+    for aid in selected_ids:
+        if aid in config.agents:
+            valid_agents.append(aid)
+        else:
+            console.print(f"[yellow]警告：{aid} 未配置，已跳过[/yellow]")
+
+    if not valid_agents:
+        console.print("[red]错误：没有有效的 AI 可以参与讨论[/red]")
+        return
+
+    # Step 4: Select moderator
+    moderator_id = _select_moderator(valid_agents, config)
+
+    # Step 5: Confirm config
+    disc_config = _confirm_config()
+
+    # Create discussion
+    topic_id = create_topic_id(user_idea[:50])
+    discussion = Discussion(
+        topic_id=topic_id,
+        user_idea=user_idea,
+        created_at=datetime.now().isoformat(),
+        agents=valid_agents,
+        moderator=moderator_id,
+    )
+
+    # Show start header
+    console.print("\n[bold green]══════════════════════════════════════════════════════[/bold green]")
+    console.print("[bold green]  讨论开始[/bold green]")
+    console.print("[bold green]══════════════════════════════════════════════════════[/bold green]\n")
+
+    # Initialize streaming runner
+    streaming_runner = StreamingRunner(config.agents)
+
+    # Initialize orchestrator (for non-streaming methods if needed)
+    orchestrator = _make_discussion_orchestrator(config, _make_runner(config))
+
+    # Phase 1: Independent opinions with streaming
+    orchestrator.run_independent_phase_streaming(discussion, streaming_runner)
+
+    # Optional user feedback before discussion
+    console.print("[dim]（可选）补充意见或约束（直接回车跳过）:[/dim]")
+    feedback = input("> ").strip()
+    if feedback:
+        discussion.user_feedbacks.append(f"讨论前: {feedback}")
+        console.print()
+
+    # Phase 2: Discussion with streaming
+    orchestrator.run_discussion_phase_streaming(
+        discussion,
+        streaming_runner,
+        max_rounds=disc_config["max_rounds"],
+    )
+
+    # Phase 3: Synthesis with streaming
+    final_output = orchestrator.run_synthesis_phase_streaming(discussion, streaming_runner)
+
+    # Show completion
+    console.print("[bold green]══════════════════════════════════════════════════════[/bold green]")
+    console.print("[bold green]  讨论完成[/bold green]")
+    console.print("[bold green]══════════════════════════════════════════════════════[/bold green]\n")
+
+    # Show result
+    console.print("[bold]结果已保存至：[/bold]")
+    console.print(f"  meetings/{topic_id}/final_output.md\n")
+
+    # Preview
+    console.print(Markdown(final_output[:2000] + "..." if len(final_output) > 2000 else final_output))
+
+
 # ── CLI Group ─────────────────────────────────────────────────────────────────
 
-@click.group()
+@click.group(invoke_without_command=True)
+@click.pass_context
 @click.version_option("0.1.0", prog_name="council")
-def cli():
+def cli(ctx):
     """Multi-AI Discussion Orchestrator — conduct structured AI meetings."""
-    pass
+    if ctx.invoked_subcommand is None:
+        # No command provided, run interactive wizard
+        _run_interactive_wizard()
 
 
 # ── new ───────────────────────────────────────────────────────────────────────

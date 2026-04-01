@@ -428,3 +428,308 @@ class DiscussionOrchestrator:
         if len(summary) > max_len:
             summary = summary[:max_len] + "..."
         return summary
+
+    # ── Streaming Methods for Interactive Wizard ─────────────────────────────
+
+    def run_independent_phase_streaming(
+        self,
+        discussion: Discussion,
+        streaming_runner,
+    ) -> DiscussionPhase:
+        """Phase 1: All agents give independent opinions with streaming output."""
+        from .streaming_runner import StreamingRunner
+
+        console.print("\n[bold cyan]Phase 1: 收集各方观点[/bold cyan]")
+        console.print("[dim]所有 AI 独立发表观点...[/dim]\n")
+
+        template = self.config.prompt("independent_opinion.md")
+
+        phase = DiscussionPhase(
+            phase_type="independent",
+            phase_index=1,
+        )
+        discussion.phases.append(phase)
+
+        responses: Dict[str, str] = {}
+
+        # Sequential execution with streaming output
+        for agent_id in discussion.agents:
+            agent_cfg = self.config.get_agent(agent_id)
+            prompt = build_independent_prompt(
+                template_content=template,
+                agent=agent_cfg,
+                user_idea=discussion.user_idea,
+            )
+
+            response = streaming_runner.invoke_with_retry_streaming(
+                agent_name=agent_id,
+                prompt_content=prompt,
+                show_header=True,
+            )
+
+            if response.success:
+                responses[agent_id] = response.content
+            else:
+                responses[agent_id] = f"[调用失败: {response.error}]"
+
+        # Create single round for phase 1
+        round_data = DiscussionRound(round_num=1, responses=responses)
+        phase.rounds.append(round_data)
+
+        save_discussion(discussion, self.base_dir)
+        console.print(f"[green]✓ Phase 1 完成[/green] ({len(responses)} 个观点)\n")
+
+        return phase
+
+    def run_discussion_phase_streaming(
+        self,
+        discussion: Discussion,
+        streaming_runner,
+        max_rounds: int = 3,
+    ) -> DiscussionPhase:
+        """Phase 2: Moderator-led multi-round discussion with streaming output."""
+        if not discussion.moderator:
+            raise ValueError("Moderator must be selected before discussion phase")
+
+        moderator_cfg = self.config.get_agent(discussion.moderator)
+
+        phase = DiscussionPhase(
+            phase_type="discussion",
+            phase_index=2,
+        )
+        discussion.phases.append(phase)
+
+        # Build initial history from Phase 1
+        history: List[Dict] = []
+        if discussion.phases and discussion.phases[0].rounds:
+            phase1_round = discussion.phases[0].rounds[0]
+            history.append({
+                "round": 1,
+                "phase": "独立发言",
+                "responses": {
+                    self.config.get_agent(aid).name: content
+                    for aid, content in phase1_round.responses.items()
+                },
+            })
+
+        for round_num in range(1, max_rounds + 1):
+            console.print(f"\n[bold cyan]Phase 2: 讨论（第 {round_num} 轮 / 最多 {max_rounds} 轮）[/bold cyan]\n")
+
+            # Step 1: Moderator opening with streaming
+            moderator_opening = self._run_moderator_opening_streaming(
+                discussion=discussion,
+                streaming_runner=streaming_runner,
+                round_num=round_num,
+                max_rounds=max_rounds,
+                history=history,
+            )
+
+            # Parse convergence signal
+            should_conclude = self._parse_convergence_signal(moderator_opening)
+
+            # Display moderator opening
+            console.print(f"[bold yellow]🎙 {moderator_cfg.name} 引导：[/bold yellow]")
+            console.print(Panel(moderator_opening, border_style="yellow"))
+
+            # Step 2: Other agents respond with streaming
+            round_responses = self._run_discussion_round_streaming(
+                discussion=discussion,
+                streaming_runner=streaming_runner,
+                moderator_opening=moderator_opening,
+                history=history,
+            )
+
+            # Save round
+            discussion_round = DiscussionRound(
+                round_num=round_num,
+                moderator_opening=moderator_opening,
+                responses=round_responses,
+            )
+            phase.rounds.append(discussion_round)
+            save_discussion(discussion, self.base_dir)
+
+            # Add to history
+            history.append({
+                "round": round_num + 1,
+                "phase": "讨论",
+                "responses": {
+                    self.config.get_agent(aid).name: content
+                    for aid, content in round_responses.items()
+                },
+            })
+
+            # Show round summary
+            console.print(f"\n[dim]本轮 {len(round_responses)} 人发言完成[/dim]\n")
+
+            # User decision point
+            if should_conclude:
+                console.print("[yellow]💡 主持人建议结束讨论：各方观点已充分表达[/yellow]\n")
+
+            if round_num < max_rounds:
+                choice = console.input(
+                    "[c] 继续下一轮  [f] 补充意见后继续  [d] 结束讨论\n选择: "
+                ).strip().lower()
+
+                if choice == "d":
+                    console.print("\n[dim]进入 Phase 3...[/dim]\n")
+                    break
+                elif choice == "f":
+                    feedback = console.input("\n补充意见: ").strip()
+                    if feedback:
+                        discussion.user_feedbacks.append(f"第{round_num}轮后: {feedback}")
+                        console.print("[dim]意见已记录[/dim]\n")
+
+        return phase
+
+    def _run_moderator_opening_streaming(
+        self,
+        discussion: Discussion,
+        streaming_runner,
+        round_num: int,
+        max_rounds: int,
+        history: List[Dict],
+    ) -> str:
+        """Run moderator opening with streaming output."""
+        template = self.config.prompt("moderator_opening.md")
+        moderator_cfg = self.config.get_agent(discussion.moderator)
+
+        # Get last user feedback if any
+        user_feedback = discussion.user_feedbacks[-1] if discussion.user_feedbacks else ""
+
+        prompt = build_moderator_opening_prompt(
+            template_content=template,
+            agent=moderator_cfg,
+            user_idea=discussion.user_idea,
+            round_num=round_num,
+            max_rounds=max_rounds,
+            history=history,
+            user_feedback=user_feedback,
+        )
+
+        response = streaming_runner.invoke_with_retry_streaming(
+            agent_name=discussion.moderator,
+            prompt_content=prompt,
+            show_header=False,  # We'll show custom header
+        )
+
+        return response.content if response.success else "[主持人调用失败，请继续讨论]"
+
+    def _run_discussion_round_streaming(
+        self,
+        discussion: Discussion,
+        streaming_runner,
+        moderator_opening: str,
+        history: List[Dict],
+    ) -> Dict[str, str]:
+        """Run one round of discussion with streaming output."""
+        template = self.config.prompt("discussion_response.md")
+        moderator_cfg = self.config.get_agent(discussion.moderator)
+
+        responses: Dict[str, str] = {}
+        other_agents = [aid for aid in discussion.agents if aid != discussion.moderator]
+
+        for agent_id in other_agents:
+            agent_cfg = self.config.get_agent(agent_id)
+
+            prompt = build_discussion_prompt(
+                template_content=template,
+                agent=agent_cfg,
+                user_idea=discussion.user_idea,
+                history=history,
+                moderator_name=moderator_cfg.name,
+                moderator_opening=moderator_opening,
+            )
+
+            response = streaming_runner.invoke_with_retry_streaming(
+                agent_name=agent_id,
+                prompt_content=prompt,
+                show_header=True,
+            )
+
+            if response.success:
+                responses[agent_id] = response.content
+            else:
+                responses[agent_id] = f"[调用失败: {response.error}]"
+
+        return responses
+
+    def run_synthesis_phase_streaming(
+        self,
+        discussion: Discussion,
+        streaming_runner,
+    ) -> str:
+        """Phase 3: Moderator synthesizes final output with streaming."""
+        console.print("\n[bold cyan]Phase 3: 生成结果文档[/bold cyan]\n")
+
+        if not discussion.moderator:
+            raise ValueError("Moderator must be selected")
+
+        moderator_cfg = self.config.get_agent(discussion.moderator)
+        template = self.config.prompt("moderator_synthesis.md")
+
+        # Build full history
+        full_history: List[Dict] = []
+
+        # Phase 1
+        if discussion.phases and discussion.phases[0].rounds:
+            phase1 = discussion.phases[0]
+            for r in phase1.rounds:
+                full_history.append({
+                    "round": len(full_history) + 1,
+                    "phase": "独立发言",
+                    "responses": {
+                        self.config.get_agent(aid).name: content
+                        for aid, content in r.responses.items()
+                    },
+                })
+
+        # Phase 2
+        if len(discussion.phases) > 1:
+            phase2 = discussion.phases[1]
+            for r in phase2.rounds:
+                round_responses = {
+                    self.config.get_agent(aid).name: content
+                    for aid, content in r.responses.items()
+                }
+                if r.moderator_opening:
+                    round_responses[f"{moderator_cfg.name}(主持人)"] = r.moderator_opening
+                full_history.append({
+                    "round": len(full_history) + 1,
+                    "phase": "讨论",
+                    "responses": round_responses,
+                })
+
+        prompt = build_synthesis_prompt(
+            template_content=template,
+            agent=moderator_cfg,
+            user_idea=discussion.user_idea,
+            full_history=full_history,
+            all_user_feedbacks=discussion.user_feedbacks,
+        )
+
+        response = streaming_runner.invoke_with_retry_streaming(
+            agent_name=discussion.moderator,
+            prompt_content=prompt,
+            show_header=True,
+        )
+
+        if not response.success:
+            console.print(f"[red]✗ 生成失败: {response.error}[/red]")
+            return ""
+
+        final_output = response.content
+        discussion.final_output = final_output
+        discussion.status = "finalized"
+
+        # Create synthesis phase
+        phase = DiscussionPhase(
+            phase_type="synthesis",
+            phase_index=3,
+        )
+        phase.rounds.append(DiscussionRound(round_num=1, responses={"output": final_output}))
+        discussion.phases.append(phase)
+
+        save_discussion(discussion, self.base_dir)
+
+        console.print(f"[green]✓ 完成[/green]\n")
+        return final_output

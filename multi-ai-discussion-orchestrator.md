@@ -45,6 +45,96 @@
 
 ---
 
+## 🆕 交互式向导模式（新增）
+
+执行 `council` 无参数启动时，进入交互式向导：
+
+### 启动流程
+
+```
+$ python council.py
+或
+$ council
+
+══════════════════════════════════════════════════════
+  🤖 Multi-AI Discussion Council
+══════════════════════════════════════════════════════
+
+[第1步] 请输入您的问题/想法（直接回车结束输入）：
+> 我想设计一个事件驱动的微服务架构
+> 用于处理电商订单流程
+> （回车结束）
+
+[第2步] 检测本地可用的 AI CLI...
+
+  [✓] claude      - Claude Code (已安装)
+  [✓] codex       - OpenAI Codex (已安装)
+  [✗] gemini      - Google Gemini (未安装)
+  [✓] kimi        - Moonshot Kimi (已安装)
+
+[第3步] 选择参与讨论的 AI（输入编号，多个用逗号分隔）：
+  [1] claude      - Claude Sonnet 4.6
+  [2] codex       - Codex o4-mini
+  [3] kimi        - Moonshot Kimi
+
+选择: 1,2,3
+
+[第4步] 选择主持人：
+  [1] Claude Sonnet - 擅长：架构设计、系统性分析
+  [2] Codex o4-mini - 擅长：工程实现、性能优化
+  [3] Moonshot Kimi - 擅长：产品视角、用户体验
+
+选择: 1
+
+[第5步] 讨论配置：
+  最大轮次 [3]: 2
+
+══════════════════════════════════════════════════════
+  讨论开始
+══════════════════════════════════════════════════════
+```
+
+### 实时输出模式
+
+与原有的批量输出不同，交互式向导采用**流式实时显示**：
+
+```
+Phase 1: 独立发言
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[claude] 正在思考...
+────────────────────────────────────────────────────
+从架构设计角度，我建议采用 CQRS + Event Sourcing 模式：
+
+1. 领域边界划分是成败关键...
+2. 事件总线选型需要考虑...
+────────────────────────────────────────────────────
+✓ 完成 (12.3s)
+
+[codex] 正在思考...
+────────────────────────────────────────────────────
+从技术实现角度，我推荐：
+
+## 技术栈
+- Kafka 作为事件总线
+- PostgreSQL 作为事件存储
+...
+────────────────────────────────────────────────────
+✓ 完成 (8.5s)
+```
+
+### 关键特性
+
+| 特性 | 说明 |
+|------|------|
+| **CLI 自动检测** | 使用 `shutil.which()` 检测本地安装的 AI CLI |
+| **多行输入** | 支持连续输入问题描述，空行结束 |
+| **流式输出** | 使用 `subprocess.Popen` + 流式读取，逐行实时显示 |
+| **回退机制** | 检测失败时允许手动输入命令路径 |
+| **配置持久化** | 检测到的 CLI 自动更新到 `agents.yaml` |
+
+---
+
 ## Phase 详解
 
 ### Phase 1: 独立发言
@@ -365,6 +455,81 @@ council.py discuss <idea> [选项]
   --no-interact    非交互模式：自动选第一个 AI 当主持人，跑满轮次后输出
 ```
 
+### 无参数启动：交互式向导
+
+```bash
+$ council
+
+# 进入交互式向导模式
+# 1. 输入问题描述
+# 2. 检测/选择本地 CLI
+# 3. 选择主持人
+# 4. 开始讨论（实时输出）
+```
+
+---
+
+## 🆕 CLI 检测与实时输出（新增模块）
+
+### CLI 检测模块 (`lib/cli_detector.py`)
+
+```python
+class CLIDetector:
+    """检测本地安装的 AI CLI 工具。"""
+
+    KNOWN_CLIS = {
+        "claude": {
+            "name": "Claude Code",
+            "command": "claude -p \"{prompt_file}\" --output-format text",
+            "check_cmd": "claude --version",
+            "version_pattern": r"(\d+\.\d+\.\d+)",
+        },
+        "codex": {
+            "name": "OpenAI Codex",
+            "command": "codex -q \"$(cat {prompt_file})\" --approval-mode full-auto",
+            "check_cmd": "codex --version",
+            ...
+        },
+        "kimi": { ... },
+        "gemini": { ... },
+    }
+
+    def detect_all(self) -> Dict[str, CLIDetected]:
+        """检测所有已知 CLI，返回可用的列表。"""
+
+    def detect_one(self, cli_name: str) -> Optional[CLIDetected]:
+        """检测单个 CLI。"""
+```
+
+### 流式输出运行器 (`lib/streaming_runner.py`)
+
+```python
+class StreamingRunner:
+    """流式实时输出版本的 Agent 运行器。"""
+
+    def invoke_streaming(
+        self,
+        agent_name: str,
+        prompt_content: str,
+        on_output: Callable[[str], None],  # 每行输出的回调
+    ) -> AgentResponse:
+        """调用 Agent，实时流式输出到控制台。"""
+        # 使用 subprocess.Popen + 逐行读取 stdout
+        # 每读到一行立即调用 on_output(line) 显示
+```
+
+### 实时输出格式
+
+```
+[claude] 正在思考...
+────────────────────────────────────────────────────
+> 这是第一行输出
+> 这是第二行输出
+> ...
+────────────────────────────────────────────────────
+✓ 完成 (12.3s)
+```
+
 ---
 
 ## 模块变更清单
@@ -373,6 +538,8 @@ council.py discuss <idea> [选项]
 
 | 模块 | 职责 |
 |------|------|
+| `lib/cli_detector.py` | 检测本地安装的 AI CLI |
+| `lib/streaming_runner.py` | 流式实时输出版本的运行器 |
 | `lib/moderator.py` | 主持人逻辑：生成开场引导、生成最终结果文档 |
 | `config/prompts/moderator_opening.md` | 主持人每轮开场 prompt 模板 |
 | `config/prompts/moderator_synthesis.md` | 主持人最终综合 prompt 模板 |
@@ -383,7 +550,7 @@ council.py discuss <idea> [选项]
 
 | 模块 | 变更 |
 |------|------|
-| `council.py` | 新增 `discuss` 命令，保留原有命令兼容 |
+| `council.py` | 新增无参数启动的交互式向导；`discuss` 命令支持实时流式输出 |
 | `lib/orchestrator.py` | 新增 `run_discussion()` 方法，实现三阶段流程 |
 | `lib/meeting.py` | 扩展数据模型（`moderator`, `user_idea`, `phases`） |
 | `lib/prompt_builder.py` | 新增 `build_independent_prompt()`, `build_discussion_prompt()` |
@@ -392,7 +559,7 @@ council.py discuss <idea> [选项]
 
 | 模块 | 原因 |
 |------|------|
-| `lib/agent_runner.py` | 底层调用机制不变 |
+| `lib/agent_runner.py` | 保留原有非流式调用，供批处理模式使用 |
 | `lib/config.py` | Agent 配置结构不变 |
 | `lib/context.py` | 上下文压缩逻辑可复用 |
 
@@ -461,6 +628,7 @@ council.py discuss <idea> [选项]
 | `discuss` | 用户主导 + AI主持 | 用户选定的 AI | 想法讨论、方案设计 |
 | `new` + `continue` | 程序编排 | 代码逻辑 | 结构化技术选型 |
 | `interactive` | 菜单驱动 | 代码逻辑 | 灵活的多阶段会议 |
+| (无参数) | 交互式向导 | 用户选定的 AI | 快速启动、探索性讨论 |
 
 用户可以根据场景选择最适合的模式。`discuss` 更适合**开放性讨论**，现有模式更适合**结构化评审**。
 
@@ -470,17 +638,17 @@ council.py discuss <idea> [选项]
 
 ### P0 — 核心流程
 
-1. `discuss` 命令基本交互框架
-2. Phase 1: 独立发言（复用现有并行调用）
-3. 主持人选择交互
-4. Phase 2: 主持人引导的多轮讨论
-5. Phase 3: 主持人生成最终文档
+1. `council` 无参数启动的交互式向导框架
+2. `cli_detector.py` CLI 自动检测
+3. `streaming_runner.py` 流式实时输出
+4. Phase 1-3 完整流程集成到交互向导
 
 ### P1 — 体验优化
 
-6. 观点摘要自动提取（从完整回答中提取关键词和摘要）
-7. 主持人收敛建议（`[SUGGEST_CONCLUDE]` 信号）
-8. 讨论历史的上下文压缩（复用 `lib/context.py`）
+5. 观点摘要自动提取（从完整回答中提取关键词和摘要）
+6. 主持人收敛建议（`[SUGGEST_CONCLUDE]` 信号）
+7. 讨论历史的上下文压缩（复用 `lib/context.py`）
+8. 检测到的 CLI 自动持久化到 `agents.yaml`
 
 ### P2 — 扩展功能
 
