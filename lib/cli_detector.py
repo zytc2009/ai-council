@@ -29,14 +29,14 @@ class CLIDetector:
     KNOWN_CLIS: Dict[str, Dict] = {
         "claude": {
             "name": "Claude Code",
-            "command": 'claude -p "{prompt_file}" --output-format text',
+            "command": "claude -p - --output-format text",
             "check_cmd": "claude --version",
             "version_pattern": r"(\d+\.\d+\.\d+)",
             "strengths": "深度推理、架构设计、代码实现",
         },
         "codex": {
             "name": "OpenAI Codex",
-            "command": 'codex -q "$(cat {prompt_file})" --approval-mode full-auto',
+            "command": 'codex -q - --approval-mode full-auto',
             "check_cmd": "codex --version",
             "version_pattern": r"(\d+\.\d+\.\d+)",
             "strengths": "复杂推理、数学、算法、工程实现",

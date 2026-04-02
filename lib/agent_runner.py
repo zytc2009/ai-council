@@ -1,7 +1,9 @@
 """CLI agent invocation with subprocess."""
 from __future__ import annotations
 
+import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from dataclasses import dataclass
@@ -9,6 +11,38 @@ from pathlib import Path
 from typing import Optional
 
 from .config import AgentConfig
+
+
+def _find_bash_win32() -> str:
+    """Find bash executable on Windows, checking PATH and common Git install locations."""
+    import os
+    from pathlib import Path
+    # 1. Check CLAUDE_CODE_GIT_BASH_PATH env var
+    env_path = os.environ.get("CLAUDE_CODE_GIT_BASH_PATH", "")
+    if env_path and Path(env_path).exists():
+        return env_path
+    # 2. Check PATH via shutil.which
+    found = shutil.which("bash")
+    if found:
+        return found
+    # 3. Try common Git for Windows install locations
+    candidates = [
+        r"C:\tools\Git\usr\bin\bash.exe",
+        r"C:\Program Files\Git\usr\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\usr\bin\bash.exe",
+    ]
+    for p in candidates:
+        if Path(p).exists():
+            return p
+    return "bash"
+
+
+def _build_subprocess_args(cmd: str) -> dict:
+    """Build subprocess kwargs that use bash on Windows, sh on Unix."""
+    if sys.platform == "win32":
+        bash = _find_bash_win32()
+        return {"args": [bash, "-c", cmd], "shell": False}
+    return {"args": cmd, "shell": True}
 
 
 @dataclass
@@ -39,17 +73,22 @@ class AgentRunner:
         output_file = None
         start = time.time()
         try:
-            # Create temp file for prompt
-            with tempfile.NamedTemporaryFile(
-                mode="w",
-                suffix=".md",
-                delete=False,
-                encoding="utf-8",
-            ) as f:
-                f.write(prompt_content)
-                prompt_file = f.name
+            cmd = agent.command
 
-            cmd = agent.command.replace("{prompt_file}", prompt_file)
+            # Handle prompt input: either via file placeholder or stdin
+            if "{prompt_file}" in cmd:
+                # Create temp file for commands that need file path
+                with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    suffix=".md",
+                    delete=False,
+                    encoding="utf-8",
+                ) as f:
+                    f.write(prompt_content)
+                    prompt_file = f.name
+                if sys.platform == "win32":
+                    prompt_file = Path(prompt_file).as_posix()
+                cmd = cmd.replace("{prompt_file}", prompt_file)
 
             # Handle output to file (e.g., codex -o flag)
             if "{output_file}" in cmd:
@@ -60,11 +99,16 @@ class AgentRunner:
                     encoding="utf-8",
                 ) as f:
                     output_file = f.name
+                if sys.platform == "win32":
+                    output_file = Path(output_file).as_posix()
                 cmd = cmd.replace("{output_file}", output_file)
 
+            sub_args = _build_subprocess_args(cmd)
+            # Only pass input via stdin if not using file-based prompt
+            stdin_input = prompt_content if "{prompt_file}" not in agent.command else None
             result = subprocess.run(
-                cmd,
-                shell=True,
+                **sub_args,
+                input=stdin_input,
                 capture_output=True,
                 text=True,
                 timeout=agent.timeout,

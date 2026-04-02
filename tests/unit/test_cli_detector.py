@@ -33,7 +33,7 @@ class TestCLIDetector:
         assert result.is_installed is True
         assert result.cli_id == "claude"
         assert result.name == "Claude Code"
-        assert result.command == 'claude -p "{prompt_file}" --output-format text'
+        assert result.command == "claude -p - --output-format text"
 
     @patch("shutil.which")
     def test_detect_one_not_installed(self, mock_which: MagicMock):

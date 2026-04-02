@@ -180,8 +180,14 @@ class TestInvoke:
             runner.invoke("claude-sonnet", "test prompt")
 
         # Verify the command contained the prompt file path
-        call_cmd = mock_run.call_args[0][0]
-        assert "/tmp/prompt.md" in call_cmd
+        # subprocess.run is called with **kwargs (via _build_subprocess_args)
+        kwargs = mock_run.call_args.kwargs
+        cmd_val = kwargs.get("args") or kwargs.get("cmd") or ""
+        if isinstance(cmd_val, list):
+            cmd_str = " ".join(cmd_val)
+        else:
+            cmd_str = str(cmd_val)
+        assert "/tmp/prompt.md" in cmd_str
 
 
 class TestInvokeWithRetry:

@@ -2,8 +2,30 @@
 """Multi-AI Discussion Orchestrator — council CLI."""
 from __future__ import annotations
 
+import io
 import sys
 from pathlib import Path
+
+# Force UTF-8 on Windows to avoid GBK encoding errors with unicode characters
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+# On Windows, set CLAUDE_CODE_GIT_BASH_PATH so claude CLI can find bash
+import os
+import shutil
+if sys.platform == "win32" and "CLAUDE_CODE_GIT_BASH_PATH" not in os.environ:
+    bash_path = shutil.which("bash")
+    if bash_path:
+        # Convert to Windows-style absolute path (e.g. C:\tools\Git\usr\bin\bash.exe)
+        import subprocess as _sp
+        try:
+            result = _sp.run(["cygpath", "-w", bash_path], capture_output=True, text=True, timeout=3)
+            if result.returncode == 0:
+                bash_path = result.stdout.strip()
+        except Exception:
+            pass
+        os.environ["CLAUDE_CODE_GIT_BASH_PATH"] = bash_path
 
 import click
 from rich.console import Console
@@ -43,7 +65,8 @@ def _make_orchestrator(config: Config, runner: AgentRunner) -> Orchestrator:
 
 
 def _make_discussion_orchestrator(config: Config, runner: AgentRunner) -> DiscussionOrchestrator:
-    return DiscussionOrchestrator(config=config, base_dir=BASE_DIR, runner=runner)
+    summarizer = _pick_summarizer(config)
+    return DiscussionOrchestrator(config=config, base_dir=BASE_DIR, runner=runner, summarizer_agent=summarizer)
 
 
 def _parse_agents(agents_str: str, config: Config, strategy: str, session_type: str) -> list[str]:
@@ -225,9 +248,14 @@ def _input_manual_cli() -> Optional[tuple]:
 
         console.print("命令模板（使用 {prompt_file} 作为 prompt 文件占位符）:")
         console.print("  示例: claude -p \"{prompt_file}\" --output-format text")
-        command = console.input("命令: ").strip()
-        if not command:
-            return None
+        while True:
+            command = console.input("命令: ").strip()
+            if not command:
+                return None
+            if "{prompt_file}" not in command and "{prompt_content}" not in command:
+                console.print("[red]错误：命令必须包含 {prompt_file} 或 {prompt_content} 占位符[/red]")
+                continue
+            break
 
         strengths = console.input("擅长领域 [通用能力]: ").strip() or "通用能力"
 
@@ -925,9 +953,10 @@ def agent_cmd():
 
 
 @agent_cmd.command("detect")
-def agent_detect():
+@click.option("--save", is_flag=True, help="Save detected CLIs to agents.yaml")
+def agent_detect(save):
     """Auto-detect locally installed AI CLIs."""
-    from lib.cli_detector import CLIDetector, format_cli_status
+    from lib.cli_detector import CLIDetector, format_cli_status, save_detected_clis_to_config
 
     console.print("\n[bold]检测本地 AI CLI...[/bold]\n")
 
@@ -951,6 +980,10 @@ def agent_detect():
     installed = [cli for cli in all_clis if cli.is_installed]
     if installed:
         console.print(f"\n[green]检测到 {len(installed)} 个已安装 CLI[/green]")
+        if save:
+            agents_yaml_path = CONFIG_DIR / "agents.yaml"
+            save_detected_clis_to_config(installed, agents_yaml_path)
+            console.print(f"[green]✓ 已保存到 {agents_yaml_path}[/green]")
     else:
         console.print("\n[yellow]未检测到已安装的 AI CLI[/yellow]")
 
@@ -1026,10 +1059,15 @@ def agent_add(cli_id):
             return
 
         console.print("命令模板（使用 {prompt_file} 作为 prompt 文件占位符）:")
-        command = console.input("命令: ").strip()
-        if not command:
-            console.print("[red]命令不能为空[/red]")
-            return
+        while True:
+            command = console.input("命令: ").strip()
+            if not command:
+                console.print("[red]命令不能为空[/red]")
+                return
+            if "{prompt_file}" not in command and "{prompt_content}" not in command:
+                console.print("[red]错误：命令必须包含 {prompt_file} 或 {prompt_content} 占位符[/red]")
+                continue
+            break
 
         strengths = console.input("擅长领域 [通用能力]: ").strip() or "通用能力"
 

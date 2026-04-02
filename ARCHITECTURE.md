@@ -81,7 +81,9 @@ class AgentConfig:
     name: str          # 显示名称
     cli: str           # CLI 类型标识
     model: str         # 模型 ID
-    command: str       # 含 {prompt_file} 的命令模板
+    command: str       # 命令模板，支持两种模式：
+                       # - 含 {prompt_file}：通过临时文件传递 prompt
+                       # - 使用 "-"（如 claude -p -）：通过 stdin 传递 prompt
     prompt_method: str # 固定为 file
     max_tokens: int    # token 上限（供预估用）
     timeout: int       # subprocess 超时秒数
@@ -103,7 +105,7 @@ class ModelStrategy:
     decision: List[str]
 ```
 
-**`Config` 类**：统一入口，加载所有配置文件并提供 `get_agent()`、`get_template()`、`prompt()` 等方法。配置校验在加载时执行（`command` 必须含 `{prompt_file}`，`timeout > 0`）。
+**`Config` 类**：统一入口，加载所有配置文件并提供 `get_agent()`、`get_template()`、`prompt()` 等方法。配置校验在加载时执行（`command` 必须含 `{prompt_file}` 或使用 `-` 表示 stdin 模式，`timeout > 0`）。
 
 ---
 
@@ -123,10 +125,11 @@ class ModelStrategy:
 ```
 invoke(agent_name, prompt_content)
   │
-  ├─ 写 prompt 到临时文件（UTF-8，Windows 路径安全）
-  ├─ 替换命令中的 {prompt_file}
-  ├─ subprocess.run(shell=True, capture_output=True, timeout=N)
-  ├─ 清理临时文件（finally 块保证执行）
+  ├─ 检查命令是否含 {prompt_file}
+  │   ├─ 是：写 prompt 到临时文件，替换命令中的占位符
+  │   └─ 否：通过 stdin 直接传递 prompt（如 claude -p -）
+  ├─ subprocess.run(input=prompt_content 或 input=None, capture_output=True, timeout=N)
+  ├─ 清理临时文件（如有，finally 块保证执行）
   └─ 返回 AgentResponse(content=stdout, success, error, duration_seconds)
 ```
 
@@ -158,7 +161,7 @@ tokens used              ← 倒数第 2 行：token 统计
 
 `-o {output_file}` 标志让 Codex 将最后一条消息单独写入文件，内容干净无噪声。
 
-**为什么用文件传 prompt 而不是命令行参数？**
+**为什么用文件或 stdin 传 prompt 而不是命令行参数？**
 
 | | 命令行参数 | 文件 / stdin |
 |---|---|---|
@@ -166,7 +169,12 @@ tokens used              ← 倒数第 2 行：token 统计
 | 特殊字符 | 引号、换行需转义 | 无需处理 |
 | 调试 | 难以复现 | 保留文件即可复现 |
 
-Gemini 通过 stdin 管道（`cat {prompt_file} | gemini -p " " --yolo`）规避了命令行长度限制，同样属于"文件间接传入"的变体。
+**两种传递方式：**
+
+1. **stdin 模式**（推荐）：如 `claude -p -`，Python 通过 `subprocess.run(input=prompt)` 直接传递，避免 shell 转义问题
+2. **文件模式**：如 `kimi --file {prompt_file}`，创建临时文件传递，适用于不支持 stdin 的 CLI
+
+Gemini 通过 stdin 管道（`cat {prompt_file} | gemini -p " " --yolo`）规避了命令行长度限制，属于"文件间接传入"的变体。
 
 **重试机制**：`invoke_with_retry(max_retries=2)` — 失败立即重试，所有重试失败后返回"本轮缺席"占位响应，不中断整场会议。
 
@@ -560,7 +568,7 @@ invoke(kimi, ...)
 | 共识检测 JSON 解析失败 | 返回 `unknown`（level=none），不中断流程 |
 | 纪要/方案生成失败 | 返回含错误信息的降级文档 |
 | 未知 Agent ID | 启动时校验，立即报错退出 |
-| 配置文件缺少 `{prompt_file}` | 加载时校验，立即报错退出 |
+| 配置文件缺少 `{prompt_file}` 且不含 stdin 模式 `-` | 加载时校验，立即报错退出 |
 
 ---
 
@@ -570,7 +578,7 @@ invoke(kimi, ...)
 
 | 维度 | Claude | Codex | Gemini | Kimi |
 |------|--------|-------|--------|------|
-| 非交互标志 | `-p {file}` | `exec -o {file}` | stdin + `-p " "` | `-p "$(cat {file})"` |
+| 非交互标志 | `-p -` (stdin) | `-q -` (stdin) | stdin + `-p " "` | `--file {file}` |
 | 自动批准 | 不需要 | `--full-auto` | `--yolo` | `-y` |
 | 输出来源 | stdout | 临时输出文件 | stdout | stdout |
 | stdout 噪声 | 无 | 有（header + token stats + 重复） | 无 | 无 |
@@ -600,9 +608,17 @@ tokens used                            ← 固定尾
 
 ## 关键设计决策
 
-### 为什么用文件传 prompt 而不是管道（stdin）
+### 为什么 stdin 模式优于 $(cat) 展开
 
-Windows 上 `subprocess` 的 `stdin=PIPE` 在某些 CLI 下行为不一致（特别是 Node.js 进程），而文件方式跨平台稳定，且便于调试（可直接查看临时文件内容）。Gemini 是例外，它通过 `cat | gemini` 的 shell 管道实现，底层仍是文件读取，只是绕过了命令行长度限制。
+早期版本使用 `$(cat '{prompt_file}')` shell 命令展开来嵌入 prompt 内容，但发现严重问题：
+- prompt 中的 `"`, `$`, `` ` `` 等特殊字符会被 bash 解释，导致命令失败
+- 长 prompt 可能超出命令行长度限制（Windows cmd 8191 字符）
+
+**修复方案**：改用 Python `subprocess.run(input=prompt_content)` 直接通过 stdin 传递，CLI 命令使用 `-` 表示从 stdin 读取（如 `claude -p -`）。对于不支持 stdin 的 CLI（如 Kimi），仍保留文件模式作为备选。
+
+### 为什么保留文件模式作为备选
+
+部分 CLI（如 Kimi）不支持 stdin 输入，必须通过 `--file` 参数传递文件路径。文件方式跨平台稳定，且便于调试（可直接查看临时文件内容）。Gemini 通过 `cat | gemini` 的 shell 管道实现，底层仍是文件读取，只是绕过了命令行长度限制。
 
 ### 为什么不并行运行多个 Session
 

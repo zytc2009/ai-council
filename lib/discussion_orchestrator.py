@@ -12,6 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from .agent_runner import AgentResponse, AgentRunner
 from .config import Config
 from .consensus import ConsensusResult, detect_consensus
+from .context import compress_history
 from .meeting import (
     Discussion,
     DiscussionPhase,
@@ -35,10 +36,11 @@ class DiscussionOrchestrator:
     - Phase 3: Moderator synthesis (final output)
     """
 
-    def __init__(self, config: Config, base_dir, runner: AgentRunner):
+    def __init__(self, config: Config, base_dir, runner: AgentRunner, summarizer_agent: str = "claude-sonnet"):
         self.config = config
         self.base_dir = base_dir
         self.runner = runner
+        self.summarizer_agent = summarizer_agent
 
     # ── Phase 1 ──────────────────────────────────────────────────────────────
 
@@ -289,6 +291,16 @@ class DiscussionOrchestrator:
                     for aid, content in round_responses.items()
                 },
             })
+
+            # Compress history if it gets too long to save tokens
+            history = compress_history(
+                rounds=history,
+                runner=self.runner,
+                summarizer_agent=self.summarizer_agent,
+                summarizer_prompt_template=self.config.prompt("summarizer.md"),
+                max_chars=4000,
+                keep_recent=1,
+            )
 
             # Show round summary
             console.print(f"\n[dim]本轮 {len(round_responses)} 人发言完成[/dim]\n")
