@@ -42,8 +42,8 @@ agents:
   kimi:
     name: Kimi
     cli: kimi
-    model: moonshot-v1-128k
-    command: kimi chat --model moonshot-v1-128k --file {prompt_file}
+    model: kimi-for-coding
+    command: kimi-for-coding -p {prompt_file}
     prompt_method: file
     max_tokens: 4000
     timeout: 120
