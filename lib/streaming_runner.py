@@ -151,6 +151,18 @@ class StreamingRunner:
         start = time.time()
         output_lines = []
 
+        # Log prompt to file for debugging
+        import datetime
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = log_dir / f"{agent_name}_{timestamp}.md"
+        try:
+            log_file.write_text(prompt_content, encoding="utf-8")
+            console.print(f"[dim]prompt 已保存到: {log_file}[/dim]")
+        except Exception as e:
+            console.print(f"[dim]保存 prompt 日志失败: {e}[/dim]")
+
         try:
             cmd = agent.command
 
