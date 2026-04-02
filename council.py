@@ -538,6 +538,7 @@ def _continue_discussion_synthesis(discussion, config):
     from lib.discussion_orchestrator import DiscussionOrchestrator
     from lib.streaming_runner import StreamingRunner
     from lib.meeting import save_discussion
+    from lib.agent_runner import AgentRunner
 
     console.print(f"\n[bold green]继续讨论: {discussion.user_idea[:50]}...[/bold green]")
     console.print(f"[dim]当前状态: {discussion.status}, 已完成 {len(discussion.phases)} 个阶段[/dim]\n")
@@ -594,7 +595,7 @@ def continue_meeting(topic_id, feedback, mode, agents, strategy):
     config = Config(CONFIG_DIR)
 
     # Check if it's a Discussion (discuss mode) or Meeting (traditional mode)
-    from lib.meeting import load_discussion, DiscussionOrchestrator as DiscussionOrchestratorClass
+    from lib.meeting import load_discussion
     try:
         discussion = load_discussion(topic_id, BASE_DIR)
         # It's a discuss mode discussion - run synthesis phase
