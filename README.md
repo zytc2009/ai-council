@@ -1,4 +1,4 @@
-# AI Council — 多 AI 讨论编排器
+# CLI Assistant — 多 AI 讨论编排器
 
 将多个 AI CLI（Claude Code、Codex、Gemini、Kimi 等）组织成结构化的讨论会议。每次会议由 Orchestrator 担任"主持人"，驱动各 AI 完成多轮交叉讨论，最终输出会议纪要与可执行方案。
 
@@ -33,17 +33,17 @@
 pip install -r requirements.txt
 
 # 2. 逐一验证各 CLI 连通性
-python council.py test-round "测试" --agent claude-sonnet
-python council.py test-round "测试" --agent codex
-python council.py test-round "测试" --agent gemini
-python council.py test-round "测试" --agent kimi
+python cli_assistant.py test-round "测试" --agent claude-sonnet
+python cli_assistant.py test-round "测试" --agent codex
+python cli_assistant.py test-round "测试" --agent gemini
+python cli_assistant.py test-round "测试" --agent kimi
 
 # 3. 发起一次完整的技术选型会议（3 阶段自动串联）
-python council.py new "微服务通信方案选型" --preset tech_selection --strategy balanced
+python cli_assistant.py new "微服务通信方案选型" --preset tech_selection --strategy balanced
 
 # 4. 查看结果
-python council.py list
-python council.py show <topic_id> --proposal
+python cli_assistant.py list
+python cli_assistant.py show <topic_id> --proposal
 ```
 
 ---
@@ -278,7 +278,7 @@ kimi:
 
 ## 使用指南
 
-AI Council 支持多种交互方式，适应不同使用场景：
+CLI Assistant 支持多种交互方式，适应不同使用场景：
 
 | 模式             | 启动方式                           | 主持人   | 输出方式     | 适用场景             |
 | ---------------- | ---------------------------------- | -------- | ------------ | -------------------- |
@@ -313,10 +313,10 @@ AI Council 支持多种交互方式，适应不同使用场景：
 
 ### 交互式向导（推荐）
 
-直接运行 `council`（或 `python council.py`）进入交互式向导，5 步完成讨论配置：
+直接运行 `council`（或 `python cli_assistant.py`）进入交互式向导，5 步完成讨论配置：
 
 ```bash
-$ python council.py
+$ python cli_assistant.py
 
 ══════════════════════════════════════════════════════
   🤖 Multi-AI Discussion Council
@@ -366,15 +366,15 @@ Phase 1: 收集各方观点
 
 ```
 council                  交互式向导（无参数时自动启动）
-council.py discuss       讨论模式（Phase 1-3，实时输出）
-council.py new           发起新议题（单阶段或预设流程）
-council.py continue      继续已有议题的下一阶段
-council.py interactive   交互式菜单模式
-council.py finalize      将最新方案标记为定稿
-council.py list          列出所有历史议题
-council.py show          查看议题详情 / 方案 / 纪要
-council.py test-round    测试单个 Agent 连通性
-council.py agent         Agent 配置管理（detect/list/add/remove）
+cli_assistant.py discuss       讨论模式（Phase 1-3，实时输出）
+cli_assistant.py new           发起新议题（单阶段或预设流程）
+cli_assistant.py continue      继续已有议题的下一阶段
+cli_assistant.py interactive   交互式菜单模式
+cli_assistant.py finalize      将最新方案标记为定稿
+cli_assistant.py list          列出所有历史议题
+cli_assistant.py show          查看议题详情 / 方案 / 纪要
+cli_assistant.py test-round    测试单个 Agent 连通性
+cli_assistant.py agent         Agent 配置管理（detect/list/add/remove）
 ```
 
 ---
@@ -384,7 +384,7 @@ council.py agent         Agent 配置管理（detect/list/add/remove）
 针对一个想法/问题，进行三阶段结构化讨论，**实时显示各 AI 的输出**：
 
 ```bash
-python council.py discuss "想法/问题" [选项]
+python cli_assistant.py discuss "想法/问题" [选项]
 ```
 
 | 选项 | 简写 | 默认值 | 说明 |
@@ -397,13 +397,13 @@ python council.py discuss "想法/问题" [选项]
 
 ```bash
 # 最简：使用所有配置好的 AI
-python council.py discuss "如何设计一个高并发的订单系统"
+python cli_assistant.py discuss "如何设计一个高并发的订单系统"
 
 # 指定参与者和轮次
-python council.py discuss "API 限流方案" -a claude-sonnet,codex,kimi -r 2
+python cli_assistant.py discuss "API 限流方案" -a claude-sonnet,codex,kimi -r 2
 
 # 指定主持人
-python council.py discuss "数据库分片策略" -a claude-sonnet,codex -m claude-sonnet
+python cli_assistant.py discuss "数据库分片策略" -a claude-sonnet,codex -m claude-sonnet
 ```
 
 **讨论流程**
@@ -436,7 +436,7 @@ Phase 3: 综合输出
 ### `new` — 发起新会议
 
 ```bash
-python council.py new "议题" [选项]
+python cli_assistant.py new "议题" [选项]
 ```
 
 | 选项 | 简写 | 默认值 | 说明 |
@@ -451,16 +451,16 @@ python council.py new "议题" [选项]
 
 ```bash
 # 最简：单阶段 brainstorm
-python council.py new "gRPC vs REST 选型"
+python cli_assistant.py new "gRPC vs REST 选型"
 
 # 指定参会者 + 轮次
-python council.py new "数据库选型" -a claude-sonnet,gemini,kimi -r 2
+python cli_assistant.py new "数据库选型" -a claude-sonnet,gemini,kimi -r 2
 
 # 完整技术选型三阶段（balanced 策略）
-python council.py new "缓存方案设计" --preset tech_selection --strategy balanced
+python cli_assistant.py new "缓存方案设计" --preset tech_selection --strategy balanced
 
 # 省钱模式
-python council.py new "代码规范讨论" --strategy budget --mode brainstorm
+python cli_assistant.py new "代码规范讨论" --strategy budget --mode brainstorm
 ```
 
 ---
@@ -468,7 +468,7 @@ python council.py new "代码规范讨论" --strategy budget --mode brainstorm
 ### `continue` — 继续下一阶段
 
 ```bash
-python council.py continue <topic_id> [选项]
+python cli_assistant.py continue <topic_id> [选项]
 ```
 
 | 选项 | 简写 | 说明 |
@@ -482,19 +482,19 @@ python council.py continue <topic_id> [选项]
 
 ```bash
 # 自动推进到 review 阶段
-python council.py continue topic_缓存方案设计_a1b2c3
+python cli_assistant.py continue topic_缓存方案设计_a1b2c3
 
 # 附加用户意见
-python council.py continue topic_xxx -f "重点考虑性能，成本不是首要因素"
+python cli_assistant.py continue topic_xxx -f "重点考虑性能，成本不是首要因素"
 
 # 换用更强模型做最终决策
-python council.py continue topic_xxx --mode decision --strategy high_stakes
+python cli_assistant.py continue topic_xxx --mode decision --strategy high_stakes
 
 # 替换参会者
-python council.py continue topic_xxx -a claude-opus,kimi
+python cli_assistant.py continue topic_xxx -a claude-opus,kimi
 
 # Discuss 模式：继续完成 Phase 3 综合阶段
-python council.py continue topic_xxx
+python cli_assistant.py continue topic_xxx
 ```
 
 **Discuss 模式特殊用法**：
@@ -508,7 +508,7 @@ Discuss 模式（`council discuss` 或交互式向导）如果在中途停止，
 ### `interactive` — 交互式模式
 
 ```bash
-python council.py interactive "议题" [--agents a,b,c] [--strategy balanced]
+python cli_assistant.py interactive "议题" [--agents a,b,c] [--strategy balanced]
 ```
 
 启动后进入菜单驱动界面，每个阶段结束后可输入补充意见或直接 `q` 定稿退出。
@@ -530,7 +530,7 @@ ID: 微服务通信方案选型_a1b2c3
 ### `finalize` — 定稿
 
 ```bash
-python council.py finalize <topic_id>
+python cli_assistant.py finalize <topic_id>
 ```
 
 将最新 Session 的 `proposal.md` 复制为 `final_proposal.md`，状态标记为 `finalized`。
@@ -540,7 +540,7 @@ python council.py finalize <topic_id>
 ### `list` — 查看所有议题
 
 ```bash
-python council.py list
+python cli_assistant.py list
 ```
 
 ---
@@ -548,7 +548,7 @@ python council.py list
 ### `show` — 查看议题详情
 
 ```bash
-python council.py show <topic_id> [--proposal] [--minutes]
+python cli_assistant.py show <topic_id> [--proposal] [--minutes]
 ```
 
 | 选项 | 说明 |
@@ -563,10 +563,10 @@ python council.py show <topic_id> [--proposal] [--minutes]
 正式会议前，验证各 CLI 链路是否通畅：
 
 ```bash
-python council.py test-round "测试议题" --agent claude-sonnet
-python council.py test-round "测试议题" --agent codex
-python council.py test-round "测试议题" --agent gemini
-python council.py test-round "测试议题" --agent kimi
+python cli_assistant.py test-round "测试议题" --agent claude-sonnet
+python cli_assistant.py test-round "测试议题" --agent codex
+python cli_assistant.py test-round "测试议题" --agent gemini
+python cli_assistant.py test-round "测试议题" --agent kimi
 ```
 
 成功时输出 Agent 的原始回答和耗时；失败时显示错误信息供排查。
@@ -582,7 +582,7 @@ python council.py test-round "测试议题" --agent kimi
 自动扫描已安装的 AI CLI：
 
 ```bash
-$ python council.py agent detect
+$ python cli_assistant.py agent detect
 
   CLI          名称                  状态          版本         擅长领域
 ─────────────────────────────────────────────────────────────────────────────────
@@ -597,7 +597,7 @@ $ python council.py agent detect
 #### `agent list` — 列出配置
 
 ```bash
-$ python council.py agent list
+$ python cli_assistant.py agent list
 
   Agent ID        名称                  CLI          模型                  成本      超时
 ────────────────────────────────────────────────────────────────────────────────────────────
@@ -613,7 +613,7 @@ $ python council.py agent list
 
 ```bash
 # 添加已知 CLI（自动填充命令和擅长领域）
-$ python council.py agent add claude
+$ python cli_assistant.py agent add claude
 添加已知 CLI: Claude Code
 命令: claude -p "{prompt_file}" --output-format text
 擅长: 深度推理、架构设计、代码实现
@@ -621,7 +621,7 @@ $ python council.py agent add claude
 ✓ 已添加 Claude Code 到 agents.yaml
 
 # 添加自定义 CLI
-$ python council.py agent add my-custom-cli
+$ python cli_assistant.py agent add my-custom-cli
 添加自定义 CLI: my-custom-cli
 显示名称: My Custom AI
 命令模板（使用 {prompt_file} 作为 prompt 文件占位符）:
@@ -633,7 +633,7 @@ $ python council.py agent add my-custom-cli
 #### `agent remove` — 删除 Agent
 
 ```bash
-$ python council.py agent remove kimi
+$ python cli_assistant.py agent remove kimi
 确认删除 'Kimi' (kimi)? [y/N]: y
 ✓ 已删除 Kimi
 ```
@@ -731,8 +731,8 @@ $ python council.py agent remove kimi
 ## 文件结构
 
 ```
-ai-council/
-├── council.py                    # CLI 入口（click 命令组）
+cli-assistant/
+├── cli_assistant.py                    # CLI 入口（click 命令组）
 ├── requirements.txt
 ├── README.md                     # 本文件
 ├── ARCHITECTURE.md               # 技术架构文档
@@ -789,10 +789,10 @@ ai-council/
 
 ```bash
 # 添加已知 CLI（自动填充配置）
-python council.py agent add claude
+python cli_assistant.py agent add claude
 
 # 添加自定义 CLI
-python council.py agent add my-ai
+python cli_assistant.py agent add my-ai
 ```
 
 **方式二：手动编辑配置**
@@ -802,7 +802,7 @@ python council.py agent add my-ai
 **第二步**：用 `test-round` 验证连通性
 
 ```bash
-python council.py test-round "测试" --agent your-new-agent
+python cli_assistant.py test-round "测试" --agent your-new-agent
 ```
 
 **第三步**：将新 Agent ID 加入 `config/model_strategies.yaml` 的相关策略
@@ -835,7 +835,7 @@ templates:
 
 **Q: `test-round` 报"Unknown agent"？**
 
-检查 `config/agents.yaml` 中的 Agent ID 拼写，用 `python council.py agent list` 查看可用 ID。
+检查 `config/agents.yaml` 中的 Agent ID 拼写，用 `python cli_assistant.py agent list` 查看可用 ID。
 
 **Q: Claude 在 Windows 上报"requires git-bash"？**
 
@@ -874,7 +874,7 @@ set PYTHONIOENCODING=utf-8   # Windows
 
 使用 `continue` 命令继续执行 Phase 3：
 ```bash
-python council.py continue topic_id
+python cli_assistant.py continue topic_id
 ```
 已完成的 Phase 1-2 数据不会丢失。
 

@@ -1,4 +1,4 @@
-# Testing Strategy — AI Council
+# Testing Strategy — CLI Assistant
 
 ---
 
@@ -59,7 +59,7 @@ summarizer.py      ← agent_runner
 orchestrator.py     ← orchestrator + 以上所有
 discussion_orchestrator.py ← orchestrator + 以上所有
 cli_detector.py    ← 无外部依赖（纯 subprocess 检测）
-council.py         ← 所有模块（CLI 命令）
+cli_assistant.py         ← 所有模块（CLI 命令）
 ```
 
 **测试隔离原则**：
@@ -247,7 +247,7 @@ council.py         ← 所有模块（CLI 命令）
 | `cli_detector.py` | 85% |
 | `orchestrator.py` | 80% |
 | `discussion_orchestrator.py` | 75% |
-| `council.py` | 70% |
+| `cli_assistant.py` | 70% |
 
 **整体目标：80%**
 

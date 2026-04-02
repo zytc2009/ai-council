@@ -10,7 +10,7 @@
 
 ## 支持的交互模式
 
-AI Council 支持多种交互方式，适应不同使用场景：
+CLI Assistant 支持多种交互方式，适应不同使用场景：
 
 | 模式 | 启动方式 | 主持人 | 输出方式 | 适用场景 |
 |------|----------|--------|----------|----------|
@@ -70,7 +70,7 @@ AI Council 支持多种交互方式，适应不同使用场景：
 ### 启动流程
 
 ```
-$ python council.py
+$ python cli_assistant.py
 或
 $ council
 
@@ -371,13 +371,13 @@ meetings/{topic_id}/
 ### 新命令：`council discuss`
 
 ```bash
-python council.py discuss "我的想法描述"
+python cli_assistant.py discuss "我的想法描述"
 ```
 
 这是主要的交互入口，完整流程如下：
 
 ```
-$ python council.py discuss "我想做一个基于事件驱动的微服务架构"
+$ python cli_assistant.py discuss "我想做一个基于事件驱动的微服务架构"
 
 ══════════════════════════════════════════════════════
   新讨论：我想做一个基于事件驱动的微服务架构
@@ -464,7 +464,7 @@ Phase 3: 生成结果文档
 ### 命令选项
 
 ```
-council.py discuss <idea> [选项]
+cli_assistant.py discuss <idea> [选项]
 
 选项：
   --agents, -a     指定参会 AI（逗号分隔），默认全部
@@ -567,7 +567,7 @@ class StreamingRunner:
 
 | 模块 | 变更 |
 |------|------|
-| `council.py` | 新增无参数启动的交互式向导；`discuss` 命令支持实时流式输出 |
+| `cli_assistant.py` | 新增无参数启动的交互式向导；`discuss` 命令支持实时流式输出 |
 | `lib/orchestrator.py` | 新增 `run_discussion()` 方法，实现三阶段流程 |
 | `lib/meeting.py` | 扩展数据模型（`moderator`, `user_idea`, `phases`） |
 | `lib/prompt_builder.py` | 新增 `build_independent_prompt()`, `build_discussion_prompt()` |

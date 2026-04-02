@@ -1,4 +1,4 @@
-"""Configuration loading and validation for ai-council."""
+"""Configuration loading and validation for cli-assistant."""
 from __future__ import annotations
 
 import os

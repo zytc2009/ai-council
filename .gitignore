@@ -19,6 +19,7 @@ ENV/
 # Project specific
 logs/
 meetings/
+meetings/*
 .coverage
 {output_file}
 *.log

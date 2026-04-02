@@ -1,4 +1,4 @@
-# Code Revision Report — AI Council
+# Code Revision Report — CLI Assistant
 
 **Generated**: 2026-04-02  
 **Scope**: Full codebase analysis for debugging code, temporary solutions, and incomplete features
@@ -52,7 +52,7 @@ Empty `pass` statements in exception handlers hide errors and make debugging dif
 
 ### 2.1 Windows Bash Path Detection
 
-**Location**: `council.py:27`
+**Location**: `cli_assistant.py:27`
 ```python
 try:
     result = _sp.run(["cygpath", "-w", bash_path], ...)
@@ -83,7 +83,7 @@ finally:
 
 ### 2.3 Meeting Load Fallback
 
-**Location**: `council.py:663`
+**Location**: `cli_assistant.py:663`
 ```python
 try:
     discussion = load_discussion(topic_id, BASE_DIR)
@@ -97,7 +97,7 @@ except (FileNotFoundError, ValueError):
 
 ### 2.4 Empty CLI Stub
 
-**Location**: `council.py:952`
+**Location**: `cli_assistant.py:952`
 ```python
 @click.group()
 def agent_cmd():
@@ -161,7 +161,7 @@ Identical logic for finding bash on Windows exists in two files. Changes need to
 
 ### 5.1 Summarizer Agent Selection
 
-**Location**: `council.py:87-93`
+**Location**: `cli_assistant.py:87-93`
 
 ```python
 def _pick_summarizer(config: Config) -> str:
@@ -224,7 +224,7 @@ The directory structure exists but integration tests are not fully implemented (
 
 | File | Lines | Coverage | Status |
 |------|-------|----------|--------|
-| `council.py` | ~1100 | N/A | CLI entry - needs error handling improvements |
+| `cli_assistant.py` | ~1100 | N/A | CLI entry - needs error handling improvements |
 | `lib/agent_runner.py` | 101 | 89% | Good - minor gaps in Windows paths |
 | `lib/streaming_runner.py` | 113 | 83% | Moderate - needs error path tests |
 | `lib/discussion_orchestrator.py` | 226 | 78% | **Needs attention** - 49 lines uncovered |

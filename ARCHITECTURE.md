@@ -1,4 +1,4 @@
-# AI Council — 技术架构文档
+# CLI Assistant — 技术架构文档
 
 ---
 
@@ -23,7 +23,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                     council.py (CLI)                      │
+│                     cli_assistant.py (CLI)                      │
 │  discuss / new / continue / interactive / finalize /     │
 │  list / show / test-round / agent (detect/list/add/remove)│
 └────────────────────────┬─────────────────────────────────┘
@@ -469,7 +469,7 @@ Token 预估（粗略）：
 用户输入议题
     │
     ▼
-council.py::new()
+cli_assistant.py::new()
     │
     ├─ Config.load()           读取 YAML 配置
     ├─ Meeting.create()        创建会议对象

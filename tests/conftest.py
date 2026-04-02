@@ -1,4 +1,4 @@
-"""Shared fixtures for ai-council tests."""
+"""Shared fixtures for cli-assistant tests."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
