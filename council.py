@@ -533,6 +533,54 @@ def new(topic, agents, mode, strategy, rounds, preset):
     console.print(f"方案文档：meetings/{topic_id}/session_{len(meeting.sessions):02d}/proposal.md")
 
 
+def _continue_discussion_synthesis(discussion, config):
+    """Continue a discuss-mode discussion by running Phase 3 synthesis."""
+    from lib.discussion_orchestrator import DiscussionOrchestrator
+    from lib.streaming_runner import StreamingRunner
+    from lib.meeting import save_discussion
+
+    console.print(f"\n[bold green]继续讨论: {discussion.user_idea[:50]}...[/bold green]")
+    console.print(f"[dim]当前状态: {discussion.status}, 已完成 {len(discussion.phases)} 个阶段[/dim]\n")
+
+    # Check if already finalized
+    if discussion.status == "finalized" and discussion.final_output:
+        console.print("[yellow]该讨论已完成，最终输出已存在[/yellow]")
+        console.print(f"\n[bold]最终结果:[/bold]\n{discussion.final_output[:500]}...")
+        return
+
+    # Check if there's Phase 2 data to synthesize
+    if len(discussion.phases) < 2:
+        console.print("[red]错误: 没有 Phase 2 讨论数据，无法生成最终结果[/red]")
+        return
+
+    # Initialize streaming runner and orchestrator
+    streaming_runner = StreamingRunner(config.agents)
+    orchestrator = DiscussionOrchestrator(
+        config=config,
+        base_dir=BASE_DIR,
+        runner=AgentRunner(config.agents),
+    )
+
+    try:
+        final_output = orchestrator.run_synthesis_phase_streaming(discussion, streaming_runner)
+
+        console.print("\n[bold green]══════════════════════════════════════════════════════[/bold green]")
+        console.print("[bold green]  讨论完成[/bold green]")
+        console.print("[bold green]══════════════════════════════════════════════════════[/bold green]\n")
+
+        console.print("[bold]最终结果已保存[/bold]")
+        if final_output:
+            from rich.markdown import Markdown
+            console.print(Markdown(final_output[:2000] + "..." if len(final_output) > 2000 else final_output))
+    except Exception as e:
+        console.print(f"[red]Phase 3 执行失败: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        # Save current state
+        save_discussion(discussion, BASE_DIR)
+        console.print("[yellow]当前状态已保存[/yellow]")
+
+
 # ── continue ──────────────────────────────────────────────────────────────────
 
 @cli.command("continue")
@@ -544,6 +592,18 @@ def new(topic, agents, mode, strategy, rounds, preset):
 def continue_meeting(topic_id, feedback, mode, agents, strategy):
     """Continue an existing meeting with the next session."""
     config = Config(CONFIG_DIR)
+
+    # Check if it's a Discussion (discuss mode) or Meeting (traditional mode)
+    from lib.meeting import load_discussion, DiscussionOrchestrator as DiscussionOrchestratorClass
+    try:
+        discussion = load_discussion(topic_id, BASE_DIR)
+        # It's a discuss mode discussion - run synthesis phase
+        _continue_discussion_synthesis(discussion, config)
+        return
+    except (FileNotFoundError, ValueError):
+        # Not a discussion, try loading as traditional meeting
+        pass
+
     runner = _make_runner(config)
     orchestrator = _make_orchestrator(config, runner)
     summarizer = _pick_summarizer(config)
