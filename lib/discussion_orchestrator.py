@@ -249,7 +249,14 @@ class DiscussionOrchestrator:
                 f"\n[bold cyan]Phase 2: 讨论（第 {round_num} 轮 / 最多 {max_rounds} 轮）[/bold cyan]\n"
             )
 
+            # Debug: Check other agents
+            other_agents = [aid for aid in discussion.agents if aid != discussion.moderator]
+            if not other_agents:
+                console.print("[yellow]警告：没有其他 Agent 参与讨论（主持人为唯一参与者）[/yellow]")
+                break
+
             # Step 1: Moderator opening
+            console.print("[dim]主持人准备开场...[/dim]")
             moderator_opening = self._run_moderator_opening(
                 discussion=discussion,
                 round_num=round_num,
@@ -293,14 +300,17 @@ class DiscussionOrchestrator:
             })
 
             # Compress history if it gets too long to save tokens
-            history = compress_history(
-                rounds=history,
-                runner=self.runner,
-                summarizer_agent=self.summarizer_agent,
-                summarizer_prompt_template=self.config.prompt("summarizer.md"),
-                max_chars=4000,
-                keep_recent=1,
-            )
+            try:
+                history = compress_history(
+                    rounds=history,
+                    runner=self.runner,
+                    summarizer_agent=self.summarizer_agent,
+                    summarizer_prompt_template=self.config.prompt("summarizer.md"),
+                    max_chars=4000,
+                    keep_recent=1,
+                )
+            except Exception as e:
+                console.print(f"[dim]历史压缩失败（继续）: {e}[/dim]")
 
             # Show round summary
             console.print(f"\n[dim]本轮 {len(round_responses)} 人发言完成[/dim]\n")
