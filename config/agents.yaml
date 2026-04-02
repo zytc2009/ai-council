@@ -43,7 +43,7 @@ agents:
     name: Kimi
     cli: kimi
     model: default
-    command: kimi --print -p -
+    command: cat {prompt_file} | kimi --print --input-format text --output-format text
     prompt_method: file
     max_tokens: 4000
     timeout: 120
