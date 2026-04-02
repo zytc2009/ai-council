@@ -197,10 +197,40 @@ class StreamingRunner:
 
             # Stream stdout in real-time
             is_json_stream = agent.output_format == "json" or agent.output_format == "stream-json"
-            if process.stdout:
-                for line in iter(process.stdout.readline, ''):
-                    if not line:
-                        break
+
+            # Use a thread to read stdout without blocking
+            import threading
+            stdout_lines = []
+            def read_stdout():
+                if process.stdout:
+                    for line in iter(process.stdout.readline, ''):
+                        if not line:
+                            break
+                        stdout_lines.append(line)
+
+            stdout_thread = threading.Thread(target=read_stdout)
+            stdout_thread.daemon = True
+            stdout_thread.start()
+
+            # Poll for new lines with timeout
+            start_time = time.time()
+            last_output_idx = 0
+            last_progress_time = start_time
+
+            while True:
+                # Check overall timeout
+                elapsed = time.time() - start_time
+                if elapsed > agent.timeout:
+                    console.print("[dim][调用超时][/dim]")
+                    process.kill()
+                    break
+
+                # Process new lines
+                while last_output_idx < len(stdout_lines):
+                    line = stdout_lines[last_output_idx]
+                    last_output_idx += 1
+                    last_progress_time = time.time()
+
                     line = line.rstrip('\n\r')
                     output_lines.append(line)
 
@@ -216,6 +246,33 @@ class StreamingRunner:
                     # Call callback if provided
                     if on_output:
                         on_output(line)
+
+                # Check if process finished
+                ret = process.poll()
+                if ret is not None:
+                    # Process finished, wait for stdout thread to complete
+                    stdout_thread.join(timeout=2.0)
+                    # Process any remaining lines
+                    while last_output_idx < len(stdout_lines):
+                        line = stdout_lines[last_output_idx]
+                        last_output_idx += 1
+                        line = line.rstrip('\n\r')
+                        output_lines.append(line)
+                        if is_json_stream:
+                            display_line = self._extract_text_from_json_line(line)
+                            if display_line:
+                                console.print(f"> {display_line}")
+                    break
+
+                # Check for no-output timeout (30 seconds)
+                if time.time() - last_progress_time > 30:
+                    console.print("[dim][30秒无输出，检查进程状态...][/dim]")
+                    if process.poll() is not None:
+                        break
+                    last_progress_time = time.time()
+
+                # Small sleep to avoid busy waiting
+                time.sleep(0.1)
 
             # Wait for process to complete
             try:
