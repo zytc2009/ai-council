@@ -82,24 +82,6 @@ kimi    1.28.0
 
 ---
 
-## 交互模式概览
-
-AI Council 支持多种交互方式，适应不同使用场景：
-
-| 模式 | 启动方式 | 主持人 | 输出方式 | 适用场景 |
-|------|----------|--------|----------|----------|
-| **交互式向导** | `council`（无参数） | 用户选择 | 流式实时输出 | 快速启动、探索性讨论 |
-| **Discuss 命令** | `council discuss "想法"` | 用户选择 | 流式实时输出 | 想法讨论、方案设计 |
-| **结构化会议** | `council new` + `council continue` | 程序编排 | 批量输出 | 技术评审、多阶段决策 |
-| **交互菜单** | `council interactive` | 程序编排 | 菜单驱动 | 复杂流程、灵活控制 |
-
-**模式选择建议**：
-- 日常快速讨论 → 使用 **交互式向导**（无参数启动）
-- 明确的单次话题 → 使用 **Discuss 命令**
-- 需要多轮评审 → 使用 **结构化会议**
-
----
-
 ## CLI 对接详情
 
 > 本节记录各 CLI 的**实际验证**过的非交互调用方式，以及已知的平台限制。
@@ -127,7 +109,7 @@ claude -p "{prompt_file}" --output-format text
    ```powershell
    # PowerShell
    $env:CLAUDE_CODE_GIT_BASH_PATH = "C:\Program Files\Git\bin\bash.exe"
-
+   
    # 或永久设置
    [Environment]::SetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH", "C:\Program Files\Git\bin\bash.exe", "User")
    ```
@@ -246,27 +228,21 @@ gemini:
 
 ### Kimi
 
-**非交互模式**：`-p/--prompt` 标志 + `-y` 自动批准
+**非交互模式**：stdin 管道 + `--input-format text` + `--output-format text`
 
 ```bash
-kimi -p "$(cat {prompt_file})" -y
+cat {prompt_file} | kimi --print --input-format text --output-format text
 ```
 
 **关键标志说明**：
 
 | 标志 | 作用 |
 |------|------|
-| `-p TEXT` / `--prompt TEXT` | 非交互模式，直接传入 prompt 文本 |
-| `-y` / `--yolo` / `--yes` | 自动批准所有操作 |
-| `-m TEXT` | 指定模型（默认使用配置文件中的模型） |
+| `--print` | 非交互模式（print mode） |
+| `--input-format text` | 从 stdin 读取 prompt 内容 |
+| `--output-format text` | 输出纯文本格式 |
 
-> **⚠️ 已知问题（Windows）**：当前 Kimi CLI 在 Windows 上存在 stdin 输入问题，无法通过非交互模式正确接收 prompt。建议暂时使用 Claude 和 Codex 进行多 AI 讨论。Kimi 支持将在后续版本修复。
-
-**Windows 编码注意**：Kimi 在 Windows 终端直接运行时可能出现 gbk 编码错误（UI 字符集问题）。通过 `-p` 标志走非交互模式可以规避大部分此类问题。若仍有问题，可在环境变量中设置：
-
-```
-PYTHONIOENCODING=utf-8
-```
+> **注意**：不使用 `-p` 参数，因为 `-p` 会直接使用参数值作为输入，忽略 stdin。
 
 **agents.yaml 配置**：
 
@@ -274,8 +250,8 @@ PYTHONIOENCODING=utf-8
 kimi:
   name: "Kimi"
   cli: kimi
-  model: moonshot-v1-128k
-  command: 'kimi -p "$(cat {prompt_file})" -y'
+  model: default
+  command: 'cat {prompt_file} | kimi --print --input-format text --output-format text'
   prompt_method: file
   max_tokens: 4000
   timeout: 120
@@ -292,11 +268,26 @@ kimi:
 | Claude | `-p {file}` | stdout | 无需 | 需要 git-bash |
 | Codex | `exec -o {file}` | 输出文件 | `--full-auto` | 无 |
 | Gemini | stdin pipe + `-p " "` | stdout | `--yolo` | 无 |
-| Kimi | `-p "$(cat {file})"` | stdout | `-y` | 注意 gbk 编码 |
+| Kimi | stdin pipe + `--input-format text` | stdout | `--print` | 无 |
 
 ---
 
 ## 使用指南
+
+AI Council 支持多种交互方式，适应不同使用场景：
+
+| 模式             | 启动方式                           | 主持人   | 输出方式     | 适用场景             |
+| ---------------- | ---------------------------------- | -------- | ------------ | -------------------- |
+| **交互式向导**   | `council`（无参数）                | 用户选择 | 流式实时输出 | 快速启动、探索性讨论 |
+| **Discuss 命令** | `council discuss "想法"`           | 用户选择 | 流式实时输出 | 想法讨论、方案设计   |
+| **结构化会议**   | `council new` + `council continue` | 程序编排 | 批量输出     | 技术评审、多阶段决策 |
+| **交互菜单**     | `council interactive`              | 程序编排 | 菜单驱动     | 复杂流程、灵活控制   |
+
+**模式选择建议**：
+
+- 日常快速讨论 → 使用 **交互式向导**（无参数启动）
+- 明确的单次话题 → 使用 **Discuss 命令**
+- 需要多轮评审 → 使用 **结构化会议**
 
 ### 交互式向导（推荐）
 
