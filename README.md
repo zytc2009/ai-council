@@ -293,6 +293,24 @@ AI Council 支持多种交互方式，适应不同使用场景：
 - 明确的单次话题 → 使用 **Discuss 命令**
 - 需要多轮评审 → 使用 **结构化会议**
 
+### 流式实时输出
+
+交互式向导和 Discuss 命令支持**流式实时输出**，执行过程中即可看到各 AI 的思考过程：
+
+```
+[Claude Sonnet] 正在思考...
+────────────────────────────────────────────────────
+> 从架构设计角度，我建议采用 CQRS + Event Sourcing 模式...
+> 领域边界划分是成败关键...
+────────────────────────────────────────────────────
+✓ 完成 (12.3s)
+```
+
+**特殊输出格式处理**：
+- **Kimi**: 自动解析 `--output-format stream-json` 的 JSON 流，提取 `type=text` 的内容
+- **Codex**: 支持从 `-o {output_file}` 输出文件读取结果
+- **Claude/Gemini**: 直接从 stdout 读取纯文本输出
+
 ### 交互式向导（推荐）
 
 直接运行 `council`（或 `python council.py`）进入交互式向导，5 步完成讨论配置：
@@ -474,7 +492,16 @@ python council.py continue topic_xxx --mode decision --strategy high_stakes
 
 # 替换参会者
 python council.py continue topic_xxx -a claude-opus,kimi
+
+# Discuss 模式：继续完成 Phase 3 综合阶段
+python council.py continue topic_xxx
 ```
+
+**Discuss 模式特殊用法**：
+
+Discuss 模式（`council discuss` 或交互式向导）如果在中途停止，可以使用 `continue` 命令继续：
+- Phase 1-2 已完成 → 自动执行 Phase 3（综合输出）
+- 已 finalized → 显示现有结果
 
 ---
 
@@ -835,6 +862,21 @@ set PYTHONIOENCODING=utf-8   # Windows
 **Q: Agent 调用超时？**
 
 增大 `config/agents.yaml` 中对应 Agent 的 `timeout` 值（单位：秒）。系统会自动重试 2 次。
+
+**Q: 如何调试 Agent 调用问题？**
+
+每次调用时，完整的 prompt 会自动保存到 `logs/{agent_name}_{timestamp}.md`，可用于：
+- 检查 prompt 内容是否符合预期
+- 直接用 CLI 测试：`cat logs/codex_xxx.md | codex ...`
+- 排查格式错误或内容过长问题
+
+**Q: Discuss 模式 Phase 3 失败如何恢复？**
+
+使用 `continue` 命令继续执行 Phase 3：
+```bash
+python council.py continue topic_id
+```
+已完成的 Phase 1-2 数据不会丢失。
 
 **Q: 历史记录太长导致 prompt 超限？**
 
