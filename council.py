@@ -399,7 +399,13 @@ def _run_interactive_wizard():
     orchestrator = _make_discussion_orchestrator(config, _make_runner(config))
 
     # Phase 1: Independent opinions with streaming
-    orchestrator.run_independent_phase_streaming(discussion, streaming_runner)
+    try:
+        orchestrator.run_independent_phase_streaming(discussion, streaming_runner)
+    except Exception as e:
+        console.print(f"[red]Phase 1 执行失败: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        return
 
     # Optional user feedback before discussion
     console.print("[dim]（可选）补充意见或约束（直接回车跳过）:[/dim]")
@@ -409,14 +415,32 @@ def _run_interactive_wizard():
         console.print()
 
     # Phase 2: Discussion with streaming
-    orchestrator.run_discussion_phase_streaming(
-        discussion,
-        streaming_runner,
-        max_rounds=disc_config["max_rounds"],
-    )
+    try:
+        orchestrator.run_discussion_phase_streaming(
+            discussion,
+            streaming_runner,
+            max_rounds=disc_config["max_rounds"],
+        )
+    except Exception as e:
+        console.print(f"[red]Phase 2 执行失败: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        # Save current state before exit
+        from lib.meeting import save_discussion
+        save_discussion(discussion, Path("meetings"))
+        console.print("[yellow]当前讨论状态已保存[/yellow]")
+        return
 
     # Phase 3: Synthesis with streaming
-    final_output = orchestrator.run_synthesis_phase_streaming(discussion, streaming_runner)
+    try:
+        final_output = orchestrator.run_synthesis_phase_streaming(discussion, streaming_runner)
+    except Exception as e:
+        console.print(f"[red]Phase 3 执行失败: {e}[/red]")
+        # Save current state before exit
+        from lib.meeting import save_discussion
+        save_discussion(discussion, Path("meetings"))
+        console.print("[yellow]当前讨论状态已保存[/yellow]")
+        raise
 
     # Show completion
     console.print("[bold green]══════════════════════════════════════════════════════[/bold green]")
@@ -428,7 +452,10 @@ def _run_interactive_wizard():
     console.print(f"  meetings/{topic_id}/final_output.md\n")
 
     # Preview
-    console.print(Markdown(final_output[:2000] + "..." if len(final_output) > 2000 else final_output))
+    if final_output:
+        console.print(Markdown(final_output[:2000] + "..." if len(final_output) > 2000 else final_output))
+    else:
+        console.print("[yellow]警告: 最终输出为空[/yellow]")
 
 
 # ── CLI Group ─────────────────────────────────────────────────────────────────
