@@ -1,0 +1,31 @@
+{
+  "mode": "discuss",
+  "topic_id": "Which_is_more_import_b4d487",
+  "user_idea": "Which is more important: the model or the harness?",
+  "created_at": "2026-04-02T15:27:09.346114",
+  "agents": [
+    "codex",
+    "kimi",
+    "gemini"
+  ],
+  "moderator": "gemini",
+  "status": "draft",
+  "user_feedbacks": [],
+  "phases": [
+    {
+      "phase_type": "independent",
+      "phase_index": 1,
+      "rounds": [
+        {
+          "round_num": 1,
+          "moderator_opening": "",
+          "responses": {
+            "codex": "### 整体评价\n\n这个问题本身是有价值的，但如果把“model”和“harness”对立起来，往往会把讨论带偏。我的判断是：在能力上限上，模型更重要；在实际产出和稳定性上，harness 往往同样重要，甚至在工程环境里更决定结果。一个强模型放进糟糕的 harness 里，会持续浪费能力；一个一般模型配上优秀的 harness，能显著逼近更强模型的实际效果。真正该问的不是“哪个更重要”，而是“当前瓶颈到底在能力上限，还是在能力释放”。\n\n### 关键要点\n\n1. 模型决定了系统的理论上限。推理深度、知识迁移、代码生成质量、长程一致性，这些核心能力主要由模型本身决定，harness 很难凭空补出不存在的能力。\n2. Harness 决定了模型能力能否稳定落地。任务分解、工具调用、上下文管理、检索质量、失败恢复、评测反馈，这些工程机制直接影响同一个模型最终能产出多少有效价值。\n3. 在真实系统里，瓶颈常常先出现在 harness，而不是模型。很多团队在模型还没被充分用好的情况下就急着换更强模型，结果成本上升了，但效果提升有限，因为问题其实出在提示链路、状态管理和评测闭环。\n\n### 补充建议\n\n建议把这个问题改写成一个更可操作的判断框架：  \n先问“当前失败案例里，多少是模型不会，多少是系统没把问题交给模型处理好”。具体做法是：\n\n1. 建一组失败样本，按原因标注为“能力不足”或“编排不足”。\n2. 做二维对比实验：固定 harness 换模型，固定模型换 harness。\n3. 看边际收益而不是看绝对表现，判断下一步该投模型升级还是系统优化。\n4. 优先补最短板：如果输出不稳定、上下文丢失、工具乱用，先修 harness；如果已经有良好编排但核心推理仍然不够，再换更强模型。\n\n如果必须给一句结论，我会说：模型决定你能到多高，harness 决定你能不能真的到那里。",
+            "kimi": "-\nTurnBegin(user_input='-')\nStepBegin(n=1)\nThinkPart(\n    type='think',\n    think='The user entered a dash, which might be a mistake or a test. I shoul\nd acknowledge this and ask how I can help them today.',\n    encrypted=None\n)\nTextPart(type='text', text='Hello! How can I help you today?')\nStatusUpdate(\n    context_usage=0.0374603271484375,\n    context_tokens=9820,\n    max_context_tokens=262144,\n    token_usage=TokenUsage(\n        input_other=1628,\n        output=40,\n        input_cache_read=8192,\n        input_cache_creation=0\n    ),\n    message_id='chatcmpl-g4ExLkhsisuCIg2GlI6sbEQS',\n    plan_mode=False,\n    mcp_status=None\n)\nTurnEnd()",
+            "gemini": "我将按照我的计划，从 Google Gemini 的专业视角出发，对“模型与评测框架（Harness）孰轻孰重”这一议题发表独立看法。\n\n### 整体评价\n\n这个辩题切中了当前大模型研发的核心矛盾：模型决定了智能的“天花板”，而评测框架（Harness）则决定了我们对该智能的“认知边界”与“迭代精度”。在大模型进入深水区的当下，两者已经从单纯的“工具与产品”关系演变为“导航仪与动力源”的共生关系。没有高性能模型，评测将失去意义；但没有精准、科学的 Harness，模型的优化将如同盲人摸象。\n\n### 关键要点\n\n1. **Harness 是模型进化论中的“选择压力”**：模型能力的提升高度依赖于反馈循环。一个设计精良的 Harness 不仅是度量工具，更是研发的“指挥棒”。它定义的指标直接驱动了 SFT（指令微调）和 RLHF（强化学习）的方向，决定了模型最终会长成什么样子。\n2. **模型是原生能力的“容器”**：无论 Harness 多么完美，它无法凭空创造能力。模型架构、参数规模以及训练数据的质量构成了基础的“智能底座”。在解决极端复杂问题（如长文本推理、跨模态联想）时，模型的原生泛化能力是 Harness 无法通过技巧性评估来补偿的。\n3. **“度量衡”的滞后性是当前最大的挑战**：目前 Harness 的发展速度往往滞后于模型能力的爆发。当模型具备了 Harness 尚未涵盖的能力（如复杂的隐喻理解或多步逻辑推演）时，过时的评测标准反而会成为束缚模型潜力的“窄门”，导致研发资源的错配。\n\n### 补充建议\n\n建议采取**“动态评测（Dynamic Benchmarking）”与“沙盒实战（Sandbox Simulation）”相结合**的策略。不要仅仅依赖静态的数据集（容易被训练集污染），而应构建具备实时生成能力、不可预测性的评测沙盒，让模型在模拟真实工作流的环境中接受压力测试。此外，应加强对“模型不确定性”和“推理路径正确性”的量化评估，而非仅仅关注最终输出的 Correctness。"
+          }
+        }
+      ]
+    }
+  ]
+}

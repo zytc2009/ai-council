@@ -43,8 +43,9 @@ agents:
     name: Kimi
     cli: kimi
     model: default
-    command: cat {prompt_file} | kimi --print --input-format text --output-format text
+    command: cat {prompt_file} | kimi --print --input-format text --output-format stream-json
     prompt_method: file
+    output_format: json
     max_tokens: 4000
     timeout: 120
     strengths: 产品视角、用户体验、中文场景、长上下文

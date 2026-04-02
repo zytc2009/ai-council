@@ -63,6 +63,34 @@ class StreamingRunner:
     def __init__(self, agents: dict[str, AgentConfig]):
         self.agents = agents
 
+    def _extract_text_from_json_stream(self, output: str) -> str:
+        """Extract text content from JSON stream format (e.g., kimi stream-json).
+
+        Format: {"role":"assistant","content":[{"type":"think",...},{"type":"text","text":"..."}]}
+        Returns concatenated text from all type=text entries.
+        """
+        import json
+
+        text_parts = []
+        for line in output.strip().split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                data = json.loads(line)
+                if isinstance(data, dict) and 'content' in data:
+                    content = data['content']
+                    if isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict) and item.get('type') == 'text':
+                                text = item.get('text', '')
+                                if text:
+                                    text_parts.append(text)
+            except json.JSONDecodeError:
+                # Not a JSON line, skip
+                continue
+        return '\n'.join(text_parts) if text_parts else output
+
     def invoke_streaming(
         self,
         agent_name: str,
@@ -176,6 +204,10 @@ class StreamingRunner:
                 stderr_output = process.stderr.read()
 
             full_output = "\n".join(output_lines)
+
+            # Handle JSON stream format (e.g., kimi --output-format stream-json)
+            if agent.output_format == "json" or agent.output_format == "stream-json":
+                full_output = self._extract_text_from_json_stream(full_output)
 
             if show_header:
                 console.print("─" * 52)

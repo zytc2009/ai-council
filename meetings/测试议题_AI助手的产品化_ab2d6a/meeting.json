@@ -1,0 +1,38 @@
+{
+  "topic_id": "测试议题_AI助手的产品化_ab2d6a",
+  "topic": "测试议题：AI助手的产品化",
+  "created_at": "2026-04-01T22:48:38.094599",
+  "status": "in_progress",
+  "sessions": [
+    {
+      "session_index": 1,
+      "session_type": "brainstorm",
+      "agents": [
+        "claude-opus"
+      ],
+      "consensus_level": "none",
+      "started_at": "2026-04-01T22:48:38.097598",
+      "finished_at": "2026-04-01T22:48:47.596694",
+      "rounds": [
+        {
+          "round_num": 1,
+          "responses": {
+            "claude-opus": "[本轮缺席：调用失败]"
+          }
+        },
+        {
+          "round_num": 2,
+          "responses": {
+            "claude-opus": "[本轮缺席：调用失败]"
+          }
+        },
+        {
+          "round_num": 3,
+          "responses": {
+            "claude-opus": "[本轮缺席：调用失败]"
+          }
+        }
+      ]
+    }
+  ]
+}

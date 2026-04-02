@@ -1,0 +1,31 @@
+{
+  "mode": "discuss",
+  "topic_id": "Which_is_more_import_ff3064",
+  "user_idea": "Which is more important: the model or the harness?",
+  "created_at": "2026-04-02T10:09:58.036451",
+  "agents": [
+    "claude",
+    "kimi",
+    "gemini"
+  ],
+  "moderator": "kimi",
+  "status": "draft",
+  "user_feedbacks": [],
+  "phases": [
+    {
+      "phase_type": "independent",
+      "phase_index": 1,
+      "rounds": [
+        {
+          "round_num": 1,
+          "moderator_opening": "",
+          "responses": {
+            "claude": "[调用失败: [WinError 2] The system cannot find the file specified]",
+            "kimi": "[调用失败: [WinError 2] The system cannot find the file specified]",
+            "gemini": "[调用失败: [WinError 2] The system cannot find the file specified]"
+          }
+        }
+      ]
+    }
+  ]
+}

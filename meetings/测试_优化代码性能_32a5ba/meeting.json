@@ -1,0 +1,38 @@
+{
+  "topic_id": "测试_优化代码性能_32a5ba",
+  "topic": "测试：优化代码性能",
+  "created_at": "2026-04-01T22:50:24.493083",
+  "status": "in_progress",
+  "sessions": [
+    {
+      "session_index": 1,
+      "session_type": "brainstorm",
+      "agents": [
+        "codex-o3"
+      ],
+      "consensus_level": "none",
+      "started_at": "2026-04-01T22:50:24.495080",
+      "finished_at": "2026-04-01T22:50:28.606827",
+      "rounds": [
+        {
+          "round_num": 1,
+          "responses": {
+            "codex-o3": "[本轮缺席：调用失败]"
+          }
+        },
+        {
+          "round_num": 2,
+          "responses": {
+            "codex-o3": "[本轮缺席：调用失败]"
+          }
+        },
+        {
+          "round_num": 3,
+          "responses": {
+            "codex-o3": "[本轮缺席：调用失败]"
+          }
+        }
+      ]
+    }
+  ]
+}

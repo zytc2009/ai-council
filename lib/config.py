@@ -22,6 +22,7 @@ class AgentConfig:
     cost_tier: str
     output_method: str = "stdout"
     output_file: str = ""
+    output_format: str = "text"
 
     def validate(self, agent_id: str) -> None:
         # 支持三种 prompt 传递方式：
@@ -80,6 +81,7 @@ def load_agents(path: Path) -> Dict[str, AgentConfig]:
             cost_tier=cfg.get("cost_tier", "medium"),
             output_method=cfg.get("output_method", "stdout"),
             output_file=cfg.get("output_file", ""),
+            output_format=cfg.get("output_format", "text"),
         )
         agent.validate(agent_id)
         agents[agent_id] = agent

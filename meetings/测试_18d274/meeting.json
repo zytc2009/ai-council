@@ -1,0 +1,27 @@
+{
+  "mode": "discuss",
+  "topic_id": "测试_18d274",
+  "user_idea": "测试",
+  "created_at": "2026-04-02T14:30:22.364980",
+  "agents": [
+    "claude-sonnet"
+  ],
+  "moderator": "",
+  "status": "draft",
+  "user_feedbacks": [],
+  "phases": [
+    {
+      "phase_type": "independent",
+      "phase_index": 1,
+      "rounds": [
+        {
+          "round_num": 1,
+          "moderator_opening": "",
+          "responses": {
+            "claude-sonnet": "### 整体评价\n\n测试是软件质量的基石，但从实践角度，我更推崇\"足够好\"的测试策略而非追求完美覆盖。过度测试会拖慢迭代速度，而测试不足则会在后期付出更高代价。关键是找到平衡点——把测试资源集中在核心业务流程和高风险代码上，而非为简单 getter/setter 写测试。\n\n### 关键要点\n\n1. **测试金字塔要落地** — 单元测试占 70%、集成 20%、E2E 占 10%，但实际项目中常看到倒金字塔，维护成本极高\n\n2. **测试即文档** — 好的测试用例应该清晰表达业务意图，新人通过读测试就能理解代码行为，这比写 Wiki 更有效\n\n3. **可测试性倒逼好设计** — 当发现难以测试时，往往是代码耦合度过高的信号，测试驱动重构比直接重构风险更低\n\n### 补充建议\n\n- 引入 mutation testing（如 Stryker、Mutmut）来验证测试质量，而非只看行覆盖率\n- 对遗留项目采用\"测试新代码 + 回归测试修复的 Bug\"策略，而非强求一次性补全\n- 共享测试数据工厂（Factory Boy、faker），避免每个测试文件重复造轮子"
+          }
+        }
+      ]
+    }
+  ]
+}
