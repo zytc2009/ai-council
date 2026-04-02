@@ -325,14 +325,25 @@ class StreamingRunner:
             if agent.output_format == "json" or agent.output_format == "stream-json":
                 full_output = self._extract_text_from_json_stream(full_output)
 
+            # Log stderr for debugging if there's any
+            if stderr_output.strip():
+                console.print(f"[dim]stderr: {stderr_output.strip()[:200]}...[/dim]")
+
             if show_header:
                 console.print("─" * 52)
-                if return_code == 0 and full_output.strip():
-                    console.print(f"[green]✓[/green] 完成 ({duration:.1f}s)\n")
+                # Consider success if we have output content, even if return_code != 0
+                # (some CLIs like codex may return non-zero on warnings but still produce valid output)
+                has_output = full_output.strip()
+                if has_output:
+                    if return_code == 0:
+                        console.print(f"[green]✓[/green] 完成 ({duration:.1f}s)\n")
+                    else:
+                        console.print(f"[yellow]⚠[/yellow] 完成但有警告 ({duration:.1f}s, exit={return_code})\n")
                 else:
-                    console.print(f"[red]✗[/red] 失败 ({duration:.1f}s)\n")
+                    console.print(f"[red]✗[/red] 失败 ({duration:.1f}s, exit={return_code})\n")
 
-            if return_code == 0 and full_output.strip():
+            # Return success if we have output content
+            if full_output.strip():
                 return AgentResponse(
                     agent=agent_name,
                     content=full_output,
@@ -344,7 +355,7 @@ class StreamingRunner:
                 error_msg = stderr_output.strip() or f"Exit code {return_code}"
                 return AgentResponse(
                     agent=agent_name,
-                    content=full_output or "[无输出]",
+                    content="[无输出]",
                     success=False,
                     error=error_msg,
                     duration_seconds=duration,
