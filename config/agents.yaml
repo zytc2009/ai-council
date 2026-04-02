@@ -23,17 +23,17 @@ agents:
     name: Codex o3
     cli: codex
     model: o3
-    command: codex -q - --model o3 --approval-mode full-auto
+    command: codex exec -c approval_mode=full-auto -o {output_file} -
     prompt_method: file
     max_tokens: 4000
     timeout: 180
     strengths: 复杂推理、数学、算法
     cost_tier: high
-  codex-o4-mini:
-    name: Codex o4-mini
+  codex-default:
+    name: Codex
     cli: codex
-    model: o4-mini
-    command: codex -q - --model o4-mini --approval-mode full-auto
+    model: gpt-5.4
+    command: codex exec -c approval_mode=full-auto -o {output_file} -
     prompt_method: file
     max_tokens: 4000
     timeout: 90
@@ -61,7 +61,7 @@ agents:
   codex:
     name: OpenAI Codex
     cli: codex
-    command: codex -q - --approval-mode full-auto
+    command: codex exec -c approval_mode=full-auto -o {output_file} -
     prompt_method: file
     max_tokens: 4000
     timeout: 120

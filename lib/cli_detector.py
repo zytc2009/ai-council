@@ -36,7 +36,7 @@ class CLIDetector:
         },
         "codex": {
             "name": "OpenAI Codex",
-            "command": 'codex -q - --approval-mode full-auto',
+            "command": 'codex exec -c approval_mode=full-auto -o {output_file} -',
             "check_cmd": "codex --version",
             "version_pattern": r"(\d+\.\d+\.\d+)",
             "strengths": "复杂推理、数学、算法、工程实现",

@@ -77,6 +77,21 @@ class TestAgentConfigValidate:
         )
         cfg.validate("codex")  # should not raise
 
+    def test_output_file_mode_accepted(self):
+        """Test that commands using output file mode (e.g., codex exec -o {output_file}) are accepted."""
+        cfg = AgentConfig(
+            name="Codex",
+            cli="codex",
+            model="o3",
+            command="codex exec -c approval_mode=full-auto -o {output_file}",
+            prompt_method="file",
+            max_tokens=4000,
+            timeout=120,
+            strengths="test",
+            cost_tier="medium",
+        )
+        cfg.validate("codex")  # should not raise
+
     def test_timeout_zero_raises(self):
         cfg = AgentConfig(
             name="Test",
