@@ -273,6 +273,7 @@ class DiscussionOrchestrator:
             console.print(Panel(moderator_opening, border_style="yellow"))
 
             # Step 2: Other agents respond sequentially
+            console.print(f"[dim]开始讨论轮次，其他参与者: {other_agents}[/dim]")
             round_responses = self._run_discussion_round(
                 discussion=discussion,
                 moderator_opening=moderator_opening,
@@ -379,13 +380,18 @@ class DiscussionOrchestrator:
             user_feedback=user_feedback,
         )
 
+        console.print(f"[dim]主持人 prompt 长度: {len(prompt)} 字符[/dim]")
+
         if streaming_runner is not None:
+            console.print(f"[dim]调用主持人 {moderator_cfg.name} (streaming)...[/dim]")
             response = streaming_runner.invoke_with_retry_streaming(
                 agent_name=discussion.moderator,
                 prompt_content=prompt,
                 show_header=False,
             )
+            console.print(f"[dim]主持人返回: success={response.success}[/dim]")
         else:
+            console.print(f"[dim]调用主持人 {moderator_cfg.name}...[/dim]")
             with console.status(f"[yellow]{moderator_cfg.name} 正在准备开场引导...[/yellow]"):
                 response = self.runner.invoke_with_retry(discussion.moderator, prompt)
 
@@ -407,6 +413,7 @@ class DiscussionOrchestrator:
 
         for agent_id in other_agents:
             agent_cfg = self.config.get_agent(agent_id)
+            console.print(f"[dim]准备调用 {agent_cfg.name}...[/dim]")
 
             prompt = build_discussion_prompt(
                 template_content=template,
@@ -416,13 +423,16 @@ class DiscussionOrchestrator:
                 moderator_name=moderator_cfg.name,
                 moderator_opening=moderator_opening,
             )
+            console.print(f"[dim]Prompt 长度: {len(prompt)} 字符[/dim]")
 
             if streaming_runner is not None:
+                console.print(f"[dim]调用 {agent_cfg.name} (streaming)...[/dim]")
                 response = streaming_runner.invoke_with_retry_streaming(
                     agent_name=agent_id,
                     prompt_content=prompt,
                     show_header=True,
                 )
+                console.print(f"[dim]{agent_cfg.name} 返回: success={response.success}, content长度={len(response.content) if response.content else 0}[/dim]")
                 if response.success:
                     responses[agent_id] = response.content
                 else:
