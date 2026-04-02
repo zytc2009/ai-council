@@ -21,14 +21,17 @@ if sys.platform == "win32" and "CLAUDE_CODE_GIT_BASH_PATH" not in os.environ:
     # 1. Try shutil.which (works in cmd, may not work in PowerShell)
     bash_path = shutil.which("bash")
     # 2. If not found, try common Git install locations (PowerShell fallback)
+    # 注意：Git for Windows 有两种路径结构
+    #   - usr\bin\bash.exe (MSYS2 版本)
+    #   - bin\bash.exe (MinGW 版本)
     if not bash_path:
         candidates = [
+            r"C:\tools\Git\bin\bash.exe",       # 你的安装路径
             r"C:\tools\Git\usr\bin\bash.exe",
-            r"C:\tools\Git\bin\bash.exe",
-            r"C:\Program Files\Git\usr\bin\bash.exe",
             r"C:\Program Files\Git\bin\bash.exe",
-            r"C:\Program Files (x86)\Git\usr\bin\bash.exe",
+            r"C:\Program Files\Git\usr\bin\bash.exe",
             r"C:\Program Files (x86)\Git\bin\bash.exe",
+            r"C:\Program Files (x86)\Git\usr\bin\bash.exe",
         ]
         for p in candidates:
             if Path(p).exists():
