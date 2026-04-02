@@ -43,7 +43,8 @@ agents:
     name: Kimi
     cli: kimi
     model: default
-    command: export PYTHONIOENCODING=utf-8 && cat {prompt_file} | kimi --print --input-format text --output-format stream-json
+    command: export PYTHONIOENCODING=utf-8 && cat {prompt_file} | kimi --print --input-format
+      text --output-format stream-json
     prompt_method: file
     output_format: json
     max_tokens: 4000

@@ -1,18 +1,28 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
+.Python
 
-# IDE
-.idea/
-.vscode/
-
-# 虚拟环境
-.venv/
+# Virtual environments
 venv/
 env/
+ENV/
 
-# 临时文件
-*.tmp
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+logs/
+meetings/
+.coverage
+{output_file}
 *.log
+
+# OS
+.DS_Store
+Thumbs.db
