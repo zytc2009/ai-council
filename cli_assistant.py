@@ -262,12 +262,11 @@ def _select_moderator(selected_agents: list[str], config: Config) -> str:
 def _resolve_moderator(selected_agents: list[str], config: Config, flow: str) -> str:
     """Resolve the moderator for the selected flow.
 
-    Free discussion keeps the moderator mechanism internally but skips the
-    interactive selection step and does not surface moderator configuration in
-    the wizard. Requirement discussions still require an explicit moderator
-    choice from the user.
+    Requirement discussions keep the moderator mechanism internally but skip
+    the interactive selection step and do not surface moderator configuration
+    in the wizard. Free discussions still allow the user to pick a moderator.
     """
-    if flow == "discussion":
+    if flow == "requirement":
         return selected_agents[0]
 
     return _select_moderator(selected_agents, config)
@@ -315,8 +314,10 @@ def _confirm_config(flow: str) -> dict:
     Returns:
         Dict with configuration options
     """
-    step_num = 5 if flow == "requirement" else 4
-    console.print(f"\n[bold cyan][第{step_num}步][/bold cyan] 讨论配置：")
+    if flow == "requirement":
+        return {"max_rounds": 3}
+
+    console.print(f"\n[bold cyan][第5步][/bold cyan] 讨论配置：")
 
     max_rounds_str = console.input("  最大轮次 [3]: ").strip()
     max_rounds = int(max_rounds_str) if max_rounds_str.isdigit() else 3
@@ -479,10 +480,10 @@ def _run_interactive_wizard():
         console.print("[red]错误：没有有效的 AI 可以参与讨论[/red]")
         return
 
-    # Step 4: Resolve moderator internally for free discussion, interactively for requirement flow
+    # Step 4: Resolve moderator internally for requirement flow, interactively for free discussion
     moderator_id = _resolve_moderator(valid_agents, config, flow)
 
-    # Step 5 for requirement flow, Step 4 for free discussion
+    # Requirement flow uses internal defaults, free discussion shows Step 5 config
     disc_config = _confirm_config(flow)
 
     # Create discussion
