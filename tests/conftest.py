@@ -119,6 +119,22 @@ presets:
         "You are {agent_name}.\nModerator opening: {moderator_opening}\nHistory: {history_section}",
         encoding="utf-8",
     )
+    (prompts_dir / "requirement_independent.md").write_text(
+        "You are {agent_name}.\nUser idea: {user_idea}",
+        encoding="utf-8",
+    )
+    (prompts_dir / "requirement_moderator_opening.md").write_text(
+        "You are moderator {agent_name}.\nStatus: {requirement_status_section}\nHistory: {history_section}\nFeedback: {user_feedback_section}",
+        encoding="utf-8",
+    )
+    (prompts_dir / "requirement_discussion_response.md").write_text(
+        "You are {agent_name}.\nModerator opening: {moderator_opening}\nHistory: {history_section}",
+        encoding="utf-8",
+    )
+    (prompts_dir / "requirement_synthesis.md").write_text(
+        "You are moderator {agent_name}.\nDiscussion: {full_discussion_history}\nFeedback: {all_user_feedback}",
+        encoding="utf-8",
+    )
     (prompts_dir / "moderator_synthesis.md").write_text(
         "You are moderator {agent_name}.\nDiscussion: {full_discussion_history}\nFeedback: {all_user_feedback}",
         encoding="utf-8",
@@ -288,6 +304,22 @@ def prompts_dir(tmp_path: Path) -> Path:
     )
     (p_dir / "discussion_response.md").write_text(
         "You are {agent_name}.\nModerator opening: {moderator_opening}\nHistory: {history_section}",
+        encoding="utf-8",
+    )
+    (p_dir / "requirement_independent.md").write_text(
+        "You are {agent_name}.\nUser idea: {user_idea}",
+        encoding="utf-8",
+    )
+    (p_dir / "requirement_moderator_opening.md").write_text(
+        "You are moderator {agent_name}.\nStatus: {requirement_status_section}\nHistory: {history_section}\nFeedback: {user_feedback_section}",
+        encoding="utf-8",
+    )
+    (p_dir / "requirement_discussion_response.md").write_text(
+        "You are {agent_name}.\nModerator opening: {moderator_opening}\nHistory: {history_section}",
+        encoding="utf-8",
+    )
+    (p_dir / "requirement_synthesis.md").write_text(
+        "You are moderator {agent_name}.\nDiscussion: {full_discussion_history}\nFeedback: {all_user_feedback}",
         encoding="utf-8",
     )
     (p_dir / "moderator_synthesis.md").write_text(

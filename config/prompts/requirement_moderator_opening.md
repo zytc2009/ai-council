@@ -6,6 +6,8 @@
 
 {user_idea}
 
+{requirement_status_section}
+
 {history_section}
 
 {user_feedback_section}

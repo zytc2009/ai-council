@@ -28,6 +28,7 @@ def build_moderator_opening_prompt(
     max_rounds: int,
     history: List[Dict],
     user_feedback: str = "",
+    requirement_status_section: str = "",
 ) -> str:
     """Build prompt for moderator opening in discussion phase (Phase 2)."""
     # Build history section
@@ -56,6 +57,7 @@ def build_moderator_opening_prompt(
         user_feedback_section=user_feedback_section,
         round_num=round_num,
         max_rounds=max_rounds,
+        requirement_status_section=requirement_status_section,
     )
 
 

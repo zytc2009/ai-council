@@ -181,6 +181,7 @@ class TestRunDiscussionPhase:
         sample_discussion.phases.append(phase1)
         sample_discussion.moderator = "claude-sonnet"
         sample_discussion.flow = "requirement"
+        mock_input.side_effect = ["", ""]
 
         with patch.object(
             orchestrator,
@@ -200,7 +201,7 @@ class TestRunDiscussionPhase:
 
         assert len(phase.rounds) == 2
         mock_consensus.assert_not_called()
-        mock_input.assert_not_called()
+        assert mock_input.call_count == 2
 
     def test_requirement_flow_uses_moderator_as_fallback_participant(
         self,
@@ -214,6 +215,34 @@ class TestRunDiscussionPhase:
         participants = orchestrator._discussion_participants(sample_discussion)
 
         assert participants == ["claude-sonnet"]
+
+    def test_extracts_requirement_field_status(
+        self,
+        orchestrator: DiscussionOrchestrator,
+        sample_discussion: Discussion,
+    ):
+        phase = DiscussionPhase(
+            phase_type="discussion",
+            phase_index=2,
+            rounds=[
+                DiscussionRound(
+                    round_num=1,
+                    moderator_opening="[CONVERGED] Goal: 生成 requirement.md",
+                    responses={
+                        "codex-o4-mini": "[CONVERGED] Inputs: 用户提供的一段原始需求描述"
+                    },
+                )
+            ],
+        )
+        sample_discussion.flow = "requirement"
+        sample_discussion.phases.append(phase)
+
+        status = orchestrator._requirement_field_status(sample_discussion)
+
+        assert status == {
+            "Goal": "生成 requirement.md",
+            "Inputs": "用户提供的一段原始需求描述",
+        }
 
 
 class TestCheckConsensus:

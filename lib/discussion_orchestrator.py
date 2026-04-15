@@ -43,6 +43,13 @@ class DiscussionOrchestrator:
         "discussion_response.md": "requirement_discussion_response.md",
         "moderator_synthesis.md": "requirement_synthesis.md",
     }
+    _REQUIREMENT_FIELDS = [
+        "Goal",
+        "Scope",
+        "Inputs",
+        "Outputs",
+        "Acceptance Criteria",
+    ]
     _REQUIREMENT_SAFETY_MAX_ROUNDS = 12
 
     def __init__(self, config: Config, base_dir, runner: AgentRunner, summarizer_agent: str = "claude-sonnet"):
@@ -67,6 +74,125 @@ class DiscussionOrchestrator:
         if discussion.flow == "requirement" and discussion.moderator:
             return [discussion.moderator]
         return []
+
+    def _normalize_requirement_field(self, field_name: str) -> Optional[str]:
+        normalized = re.sub(r"\s+", " ", field_name.strip())
+        aliases = {
+            "goal": "Goal",
+            "scope": "Scope",
+            "inputs": "Inputs",
+            "outputs": "Outputs",
+            "acceptance criteria": "Acceptance Criteria",
+            "acceptance": "Acceptance Criteria",
+        }
+        return aliases.get(normalized.lower())
+
+    def _extract_converged_fields(self, text: str) -> Dict[str, str]:
+        fields: Dict[str, str] = {}
+        for raw_field, value in re.findall(r"\[CONVERGED\]\s*([^:\n]+)\s*:\s*(.+)", text):
+            field_name = self._normalize_requirement_field(raw_field)
+            if field_name:
+                fields[field_name] = value.strip()
+        return fields
+
+    def _requirement_field_status(
+        self,
+        discussion: Discussion,
+        moderator_opening: str = "",
+        round_responses: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, str]:
+        status: Dict[str, str] = {}
+        texts: List[str] = []
+
+        for phase in discussion.phases:
+            for round_ in phase.rounds:
+                if round_.moderator_opening:
+                    texts.append(round_.moderator_opening)
+                texts.extend(round_.responses.values())
+
+        if moderator_opening:
+            texts.append(moderator_opening)
+        if round_responses:
+            texts.extend(round_responses.values())
+
+        for text in texts:
+            status.update(self._extract_converged_fields(text))
+
+        return status
+
+    def _requirement_status_section(
+        self,
+        discussion: Discussion,
+        moderator_opening: str = "",
+        round_responses: Optional[Dict[str, str]] = None,
+    ) -> str:
+        status = self._requirement_field_status(
+            discussion,
+            moderator_opening=moderator_opening,
+            round_responses=round_responses,
+        )
+        unresolved = [field for field in self._REQUIREMENT_FIELDS if field not in status]
+
+        lines = ["## 当前需求状态", "", "### 已收敛字段"]
+        if status:
+            for field in self._REQUIREMENT_FIELDS:
+                if field in status:
+                    lines.append(f"- {field}: {status[field]}")
+        else:
+            lines.append("- （暂无）")
+
+        lines.extend(["", "### 待澄清字段"])
+        if unresolved:
+            for field in unresolved:
+                lines.append(f"- {field}")
+        else:
+            lines.append("- （全部已收敛）")
+
+        return "\n".join(lines)
+
+    def _show_requirement_status(
+        self,
+        discussion: Discussion,
+        moderator_opening: str = "",
+        round_responses: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, str]:
+        status = self._requirement_field_status(
+            discussion,
+            moderator_opening=moderator_opening,
+            round_responses=round_responses,
+        )
+        unresolved = [field for field in self._REQUIREMENT_FIELDS if field not in status]
+
+        lines = ["已收敛:"]
+        if status:
+            for field in self._REQUIREMENT_FIELDS:
+                if field in status:
+                    lines.append(f"- {field}: {status[field]}")
+        else:
+            lines.append("- （暂无）")
+
+        lines.extend(["", "待澄清:"])
+        if unresolved:
+            for field in unresolved:
+                lines.append(f"- {field}")
+        else:
+            lines.append("- （全部已收敛）")
+
+        console.print(Panel("\n".join(lines), title="需求状态", border_style="cyan"))
+        return status
+
+    def _collect_requirement_feedback(self) -> str:
+        console.print("[dim]（可选）补充需求信息，多行输入，空行结束；直接空行跳过[/dim]")
+        lines: List[str] = []
+        while True:
+            try:
+                line = console.input("> ")
+            except (KeyboardInterrupt, EOFError):
+                break
+            if line.strip() == "":
+                break
+            lines.append(line)
+        return "\n".join(lines).strip()
 
     # ── Phase 1 ──────────────────────────────────────────────────────────────
 
@@ -366,12 +492,62 @@ class DiscussionOrchestrator:
             # User decision point
             if should_conclude:
                 if discussion.flow == "requirement":
+                    self._show_requirement_status(
+                        discussion,
+                        moderator_opening=moderator_opening,
+                        round_responses=round_responses,
+                    )
+                    choice = console.input(
+                        "\n[Enter] 结束并生成需求文档  [c] 继续讨论  [f] 补充信息后继续\n选择: "
+                    ).strip().lower()
+                    if choice == "f":
+                        feedback = self._collect_requirement_feedback()
+                        if feedback:
+                            discussion.user_feedbacks.append(f"第{round_num}轮后补充: {feedback}")
+                            console.print("[dim]补充信息已记录，继续澄清[/dim]\n")
+                        continue
+                    if choice == "c":
+                        console.print("[dim]继续下一轮需求澄清...[/dim]\n")
+                        continue
                     console.print("[yellow]💡 需求已基本澄清，进入最终整理[/yellow]\n")
                 else:
                     console.print("[yellow]💡 主持人建议结束讨论：各方观点已充分表达[/yellow]\n")
                 break
 
             if discussion.flow == "requirement":
+                status = self._show_requirement_status(
+                    discussion,
+                    moderator_opening=moderator_opening,
+                    round_responses=round_responses,
+                )
+                all_converged = len(status) == len(self._REQUIREMENT_FIELDS)
+                if all_converged:
+                    choice = console.input(
+                        "\n[Enter] 结束并生成需求文档  [c] 继续讨论  [f] 补充信息后继续\n选择: "
+                    ).strip().lower()
+                    if choice == "f":
+                        feedback = self._collect_requirement_feedback()
+                        if feedback:
+                            discussion.user_feedbacks.append(f"第{round_num}轮后补充: {feedback}")
+                            console.print("[dim]补充信息已记录，继续澄清[/dim]\n")
+                        continue
+                    if choice == "c":
+                        console.print("[dim]继续下一轮需求澄清...[/dim]\n")
+                        continue
+                    console.print("[yellow]💡 关键字段已收敛，进入最终整理[/yellow]\n")
+                    break
+
+                choice = console.input(
+                    "\n[Enter] 继续下一轮  [f] 补充信息后继续  [d] 结束并生成需求文档\n选择: "
+                ).strip().lower()
+                if choice == "f":
+                    feedback = self._collect_requirement_feedback()
+                    if feedback:
+                        discussion.user_feedbacks.append(f"第{round_num}轮后补充: {feedback}")
+                        console.print("[dim]补充信息已记录[/dim]\n")
+                elif choice == "d":
+                    console.print("[dim]进入需求文档整理...[/dim]\n")
+                    break
                 continue
 
             if round_num < effective_max_rounds:
@@ -428,6 +604,11 @@ class DiscussionOrchestrator:
             max_rounds=max_rounds,
             history=history,
             user_feedback=user_feedback,
+            requirement_status_section=(
+                self._requirement_status_section(discussion)
+                if discussion.flow == "requirement"
+                else ""
+            ),
         )
 
         console.print(f"[dim]主持人 prompt 长度: {len(prompt)} 字符[/dim]")
