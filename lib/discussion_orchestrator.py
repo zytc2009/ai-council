@@ -619,6 +619,11 @@ class DiscussionOrchestrator:
                 },
             })
 
+        # Show confirmation checklist before entering the loop
+        correction = self._run_requirement_confirmation(discussion)
+        if correction:
+            discussion.user_feedbacks.append(f"确认阶段纠正: {correction}")
+
         round_num = 0
         while True:
             round_num += 1
@@ -704,6 +709,77 @@ class DiscussionOrchestrator:
                 console.print("[dim]未补充，AI 将基于合理假设继续推进...[/dim]\n")
 
         return phase
+
+    def _run_requirement_confirmation(self, discussion: Discussion) -> str:
+        """Generate a consolidated understanding checklist for user confirmation.
+
+        Calls the summarizer agent to synthesize Phase 1 responses and any user
+        feedback into a structured checklist.  Shows it to the user and collects
+        optional corrections before Phase 2 begins.  Returns the correction text
+        (empty string if the user has nothing to add).
+        """
+        console.print("\n[bold cyan]── 需求理解确认 ──[/bold cyan]")
+        console.print("[dim]正在整理各 AI 的初步理解，请稍候...[/dim]\n")
+
+        try:
+            template = self.config.prompt("requirement_confirmation.md")
+        except Exception:
+            # Prompt file missing — skip confirmation silently
+            return ""
+
+        # Build phase 1 responses section
+        phase1_lines: List[str] = []
+        if discussion.phases and discussion.phases[0].rounds:
+            for aid, content in discussion.phases[0].rounds[0].responses.items():
+                agent_name = self.config.get_agent(aid).name
+                truncated = content[:800] + "..." if len(content) > 800 else content
+                phase1_lines.append(f"### {agent_name}\n{truncated}")
+        phase1_text = "\n\n".join(phase1_lines) if phase1_lines else "（无）"
+
+        user_feedback_text = (
+            "\n".join(discussion.user_feedbacks) if discussion.user_feedbacks else "（用户暂无补充）"
+        )
+
+        prompt = template.format(
+            user_idea=discussion.user_idea,
+            phase1_responses=phase1_text,
+            user_feedback=user_feedback_text,
+        )
+
+        try:
+            response = self.runner.invoke_with_retry(self.summarizer_agent, prompt)
+        except Exception as e:
+            console.print(f"[dim]确认清单生成失败（跳过）: {e}[/dim]")
+            return ""
+
+        if not response.success:
+            console.print("[dim]确认清单生成失败（跳过）[/dim]")
+            return ""
+
+        console.print(Panel(response.content, title="当前需求理解", border_style="cyan"))
+
+        console.print(
+            "\n[dim]以上理解有误吗？可以在这里纠正或补充（多行，空行结束；直接回车表示确认无误）：[/dim]"
+        )
+        lines: List[str] = []
+        while True:
+            try:
+                line = console.input("> ").strip()
+            except (KeyboardInterrupt, EOFError):
+                break
+            if line == "" and lines:
+                break
+            if line == "":
+                break
+            lines.append(line)
+
+        correction = "\n".join(lines).strip()
+        if correction:
+            console.print("[dim]纠正已记录，将在讨论中体现[/dim]\n")
+        else:
+            console.print("[dim]确认无误，开始迭代澄清...[/dim]\n")
+
+        return correction
 
     def _run_requirement_round(
         self,

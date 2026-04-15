@@ -256,6 +256,8 @@ def save_detected_clis_to_config(detected_clis, config_path):
 
 ### `lib/prompt_builder.py` — Prompt 组装
 
+**传统会议模式**
+
 ```python
 build_prompt(
     template_content,  # base_system.md 原始内容
@@ -269,18 +271,19 @@ build_prompt(
 ) -> str
 ```
 
-**历史注入逻辑**
+历史注入逻辑：第 1 轮注入"独立思考"指令，第 2 轮起注入完整历史。
 
-```
-round_num == 1:
-    history_section = "（第一轮，请独立思考，不参考他人观点）"
-    + prior_proposal（如有）
-    + user_feedback（如有）
+**讨论模式（discuss / 向导）**
 
-round_num >= 2:
-    history_section = 所有历史轮次的格式化发言文本
-    （顺序调用时还包含当前轮中已发言者的内容）
-```
+| 函数 | 用于 | 关键变量 |
+|------|------|---------|
+| `build_independent_prompt` | Phase 1 独立发言 | agent, user_idea |
+| `build_moderator_opening_prompt` | 自由讨论 Phase 2 主持人开场 | agent, history, user_feedback, round_num |
+| `build_discussion_prompt` | 自由讨论 Phase 2 参与者回应 | agent, history, moderator_opening |
+| `build_requirement_round_prompt` | **需求讨论 Phase 2 平等发言** | agent, history, user_feedbacks, round_num |
+| `build_synthesis_prompt` | Phase 3 综合输出 | agent, full_history, all_user_feedbacks |
+
+`build_requirement_round_prompt` 是需求讨论专用，不传入主持人字段，改传 `user_feedbacks`（全量补充列表）和 `round_num`，对应重写后的 `requirement_discussion_response.md` 模板。
 
 ---
 
@@ -357,7 +360,7 @@ run_session(meeting, session_type, agents, prior_proposal, user_feedback)
 
 ### `lib/discussion_orchestrator.py` — 讨论模式编排器
 
-用于 `discuss` 命令和交互式向导，实现**三阶段结构化讨论**。
+用于 `discuss` 命令和交互式向导，实现**三阶段结构化讨论**。支持两种 Phase 2 行为，由 `discussion.flow` 决定：
 
 **数据模型扩展**
 
@@ -365,7 +368,8 @@ run_session(meeting, session_type, agents, prior_proposal, user_feedback)
 Discussion
 ├── topic_id: str
 ├── user_idea: str          # 用户的原始想法
-├── moderator: str          # 选定的主持人 Agent
+├── flow: str               # "discussion"（自由讨论）/ "requirement"（需求讨论）
+├── moderator: str          # 自由讨论的主持人 Agent（需求讨论中不参与引导）
 ├── phases: List[Phase]
 │   └── Phase
 │       ├── phase_type: str   # independent / discussion / synthesis
@@ -377,27 +381,54 @@ Discussion
 
 **三阶段流程**
 
-三个核心方法均接受可选的 `streaming_runner` 参数，流式变体（`*_streaming`）是同一实现的薄包装，公开 API 不变：
+三个核心方法均接受可选的 `streaming_runner` 参数，流式变体（`*_streaming`）是同一实现的薄包装：
 
 ```
-run_independent_phase(discussion, streaming_runner=None)
-  ├── 为每个 AI 构建独立发言 prompt（第 1 轮，互不可见）
-  ├── 并行调用所有 AI（streaming 时实时显示，否则批量收集）
-  └── 收集所有观点到 Phase 1
+Phase 1 — run_independent_phase（两种 flow 相同）
+  ├── 所有 AI 独立发言，互不可见（避免锚定效应）
+  ├── 并行调用（streaming 时顺序实时显示，否则并发收集）
+  └── 需求模式输出：已明确字段 / 待澄清问题 / 假设前提
 
-run_discussion_phase(discussion, max_rounds, streaming_runner=None)
-  ├── 主持人开场（moderator_opening）
-  ├── for round in 1..max_rounds:
-  │   ├── 各 AI 依次回应（可见历史和主持人引导）
-  │   ├── 实时流式输出每个 AI 的发言（streaming 模式）
-  │   ├── 共识检测：达到 full/partial 时提前结束
-  │   └── 可选：用户补充意见
-  └── 收集讨论记录到 Phase 2
+Phase 2 — run_discussion_phase（按 flow 分支）
 
-run_synthesis_phase(discussion, streaming_runner=None)
-  ├── 主持人综合所有观点（每段回复截断至 800 字，控制 context）
-  ├── 生成结构化最终文档
-  └── 保存到 final_output.md
+  [自由讨论] 主持人引导，最多 max_rounds 轮
+    ├── 主持人开场（moderator_opening prompt）
+    ├── for round in 1..max_rounds:
+    │   ├── 其他 AI 依次回应主持人引导
+    │   ├── 共识检测：full/partial 时提前结束
+    │   └── 可选：用户补充意见
+    └── 收集讨论记录到 Phase 2
+
+  [需求讨论] 无主持人，无轮数限制，_run_requirement_discussion_phase
+    ├── 确认清单（_run_requirement_confirmation，进入循环前执行一次）
+    │   ├── summarizer_agent 综合 Phase 1 + 用户回答，生成结构化摘要
+    │   │   └── 已明确字段 / 准备做的假设 / 仍有疑问
+    │   ├── 展示给用户确认
+    │   └── 用户可输入纠正（直接回车跳过）→ 追加到 user_feedbacks
+    ├── while True:
+    │   ├── 所有 AI 平等发言（_run_requirement_round）
+    │   │   └── 每个 AI 输出：字段认知 / 仍待澄清问题 / 假设 / CONVERGED 声明
+    │   ├── 展示已收敛字段状态（_show_requirement_status）
+    │   ├── 若全部 5 个字段 [CONVERGED] → 自动结束
+    │   ├── 提取并展示"仍待澄清的问题"（_extract_unclear_points）
+    │   └── 可选用户补充（直接回车跳过；输入 d 强制结束）
+    └── 用户盲区由 AI 给出假设后继续推进，不再反复追问
+
+Phase 3 — run_synthesis_phase（按 flow 选择综合者）
+  ├── 自由讨论：由主持人（moderator）综合
+  ├── 需求讨论：由 summarizer_agent（最便宜的可用 Agent）综合
+  └── 生成结构化最终文档（requirement.md 或 final_output.md）
+```
+
+**需求讨论 Prompt 结构**（`requirement_discussion_response.md`）
+
+每轮 AI 发言按 4 节输出，便于自动解析：
+
+```
+### 1. 字段当前认知     ← 5 个字段的当前理解（待定时写 [待定: 原因]）
+### 2. 仍待澄清的问题   ← 必须由用户回答的问题（用于 _extract_unclear_points 解析）
+### 3. 我的假设         ← 用户未回答时的合理假设，让讨论继续推进
+### 4. 已收敛的字段     ← [CONVERGED] 字段名: 最终内容（用于收敛追踪）
 ```
 
 **与传统 Orchestrator 的区别**
@@ -406,9 +437,9 @@ run_synthesis_phase(discussion, streaming_runner=None)
 |---|----------------|--------------------------|
 | 模式 | 多 Session 串联 | 单议题三阶段 |
 | 输出 | 批量（结束后显示） | 流式（实时显示） |
-| 角色 | 无主持人概念 | 指定主持人引导讨论 |
-| 共识 | 每轮检测，full 时提前结束 | Phase 2 每轮检测，达成后提前退出 |
-| 适用 | 复杂多阶段会议 | 快速讨论一个想法 |
+| Phase 2 角色 | 无主持人概念 | 自由讨论有主持人；需求讨论无主持人 |
+| 轮次控制 | 固定 max_rounds | 自由讨论固定轮次；需求讨论无限循环直到收敛或用户结束 |
+| 适用 | 复杂多阶段会议 | 快速讨论 / 需求澄清 |
 
 ---
 
