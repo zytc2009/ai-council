@@ -662,12 +662,11 @@ class DiscussionOrchestrator:
             )
             all_converged = len(status) == len(self._REQUIREMENT_FIELDS)
 
-            # Consensus check
-            consensus = self._check_consensus(round_responses)
-            if consensus.consensus_reached or all_converged:
-                console.print(
-                    f"\n[green]✓ 需求已收敛，进入 Phase 3[/green]\n"
-                )
+            # For requirement flow, only auto-exit when ALL 5 fields have
+            # explicit [CONVERGED] declarations — generic consensus detection
+            # would false-positive when AIs agree on what's still unclear.
+            if all_converged:
+                console.print("\n[green]✓ 所有字段已收敛，进入 Phase 3[/green]\n")
                 break
 
             # Show remaining unclear questions from agents' responses
