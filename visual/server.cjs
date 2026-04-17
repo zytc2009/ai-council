@@ -57,6 +57,8 @@ function decodeFrame(buffer) {
     offset = 10;
   }
 
+  if (payloadLen > 65536) throw new Error('Payload too large');
+
   const maskOffset = offset;
   const dataOffset = offset + 4;
   const totalLen = dataOffset + payloadLen;
@@ -73,7 +75,7 @@ function decodeFrame(buffer) {
 
 // ========== Configuration ==========
 
-const PORT = process.env.BRAINSTORM_PORT || (49152 + Math.floor(Math.random() * 16383));
+const PORT = process.env.BRAINSTORM_PORT ? Number(process.env.BRAINSTORM_PORT) : 0;
 const HOST = process.env.BRAINSTORM_HOST || '127.0.0.1';
 const URL_HOST = process.env.BRAINSTORM_URL_HOST || (HOST === '127.0.0.1' ? 'localhost' : HOST);
 const SESSION_DIR = process.env.BRAINSTORM_DIR || '/tmp/brainstorm';
@@ -329,10 +331,16 @@ function startServer() {
     }
   }
 
+  server.on('error', (err) => {
+    console.error(JSON.stringify({ type: 'server-error', error: err.message }));
+    process.exit(1);
+  });
+
   server.listen(PORT, HOST, () => {
+    const actualPort = server.address().port;
     const info = JSON.stringify({
-      type: 'server-started', port: Number(PORT), host: HOST,
-      url_host: URL_HOST, url: 'http://' + URL_HOST + ':' + PORT,
+      type: 'server-started', port: actualPort, host: HOST,
+      url_host: URL_HOST, url: 'http://' + URL_HOST + ':' + actualPort,
       screen_dir: CONTENT_DIR, state_dir: STATE_DIR
     });
     console.log(info);

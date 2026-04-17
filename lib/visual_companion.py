@@ -40,6 +40,7 @@ class VisualCompanion:
         env["BRAINSTORM_DIR"] = str(self.session_dir)
         env["BRAINSTORM_HOST"] = "127.0.0.1"
         env["BRAINSTORM_URL_HOST"] = "localhost"
+        env["BRAINSTORM_OWNER_PID"] = str(os.getpid())
 
         try:
             self.process = subprocess.Popen(
@@ -67,6 +68,7 @@ class VisualCompanion:
             time.sleep(0.1)
 
         console.print("[yellow]Visual server started but connection info not found[/yellow]")
+        self.stop()
         return None
 
     def write_screen(self, content: str, name: str = "") -> str:

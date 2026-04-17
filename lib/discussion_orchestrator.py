@@ -1330,14 +1330,14 @@ class DiscussionOrchestrator:
             return True, ""
 
         review_text = response.content.strip()
-        approved = "Approved" in review_text and "Issues Found" not in review_text
-        # Fallback: if the model doesn't follow the exact format, look for obvious issue markers
-        if not approved:
-            # If there are actual issue bullets, it's not approved
-            if "**问题（如有）：**" in review_text or "**问题:**" in review_text or "- [" in review_text:
-                approved = False
-            else:
-                approved = True
+        m = re.search(r'\*\*状态[：:]\*\*\s*(Approved|Issues Found)', review_text)
+        if m:
+            approved = m.group(1) == "Approved"
+        else:
+            # Fallback: treat as approved only if no explicit issue markers found
+            approved = "Issues Found" not in review_text and not re.search(
+                r'\*\*问题[（(]?如有[）)]?[：:]\*\*|\*\*问题[：:]\*\*', review_text
+            )
 
         return approved, review_text
 
