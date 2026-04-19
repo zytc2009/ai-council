@@ -243,7 +243,7 @@ def _input_idea() -> str:
     return "\n".join(lines)
 
 
-def _select_clis(available_clis: list) -> list[str]:
+def _select_clis(available_clis: list, flow: str = "discussion") -> list[str]:
     """Let user select which CLIs to participate in discussion.
 
     Args:
@@ -260,7 +260,10 @@ def _select_clis(available_clis: list) -> list[str]:
         console.print("[red]错误：没有检测到可用的 AI CLI[/red]")
         return []
 
-    console.print(f"\n[bold cyan][第3步][/bold cyan] 选择参与讨论的 AI（输入编号，多个用逗号分隔）：")
+    if flow == "requirement":
+        console.print(f"\n[bold cyan][第3步][/bold cyan] 选择参与需求讨论的 AI（仅选择 1 个编号，回车默认第一个）：")
+    else:
+        console.print(f"\n[bold cyan][第3步][/bold cyan] 选择参与讨论的 AI（输入编号，多个用逗号分隔）：")
 
     for i, cli in enumerate(installed, 1):
         status = format_cli_status(cli)
@@ -270,8 +273,20 @@ def _select_clis(available_clis: list) -> list[str]:
         choice = console.input("\n选择: ").strip()
 
         if not choice:
+            if flow == "requirement":
+                return [installed[0].cli_id]
             # Default to all
             return [cli.cli_id for cli in installed]
+
+        if flow == "requirement":
+            try:
+                idx = int(choice)
+                if 1 <= idx <= len(installed):
+                    return [installed[idx - 1].cli_id]
+                console.print(f"[red]无效编号: {idx}[/red]")
+            except ValueError:
+                console.print("[red]请输入单个数字编号[/red]")
+            continue
 
         try:
             indices = [int(x.strip()) for x in choice.replace("，", ",").split(",")]
@@ -514,7 +529,7 @@ def _run_interactive_wizard():
         console.print(f"[dim yellow]保存配置警告: {e}[/dim yellow]")
 
     # Step 3: Select CLIs
-    selected_ids = _select_clis(all_clis)
+    selected_ids = _select_clis(all_clis, flow)
     if not selected_ids:
         return
 

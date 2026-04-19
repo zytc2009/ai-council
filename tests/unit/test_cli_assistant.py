@@ -1,6 +1,7 @@
 """Tests for cli_assistant.py helper behavior."""
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from click.testing import CliRunner
@@ -9,6 +10,7 @@ from cli_assistant import (
     _confirm_config,
     _build_harness_task_document,
     _input_multiline,
+    _select_clis,
     _resolve_moderator,
     cli,
     _validate_requirement_output,
@@ -212,3 +214,57 @@ class TestExportTaskCommand:
         assert "ready" in content
         assert "- language: python" in content
         assert "- platform: windows" in content
+
+
+class TestSelectClis:
+    @patch("cli_assistant.console.print")
+    @patch("cli_assistant.console.input", return_value="")
+    def test_requirement_flow_defaults_to_single_agent(
+        self,
+        mock_input,
+        mock_print,
+    ):
+        installed = [
+            SimpleNamespace(
+                cli_id="claude-sonnet",
+                is_installed=True,
+                name="Claude",
+                version="1.0.0",
+            ),
+            SimpleNamespace(
+                cli_id="codex-o4-mini",
+                is_installed=True,
+                name="Codex",
+                version="1.0.0",
+            ),
+        ]
+
+        selected = _select_clis(installed, "requirement")
+
+        assert selected == ["claude-sonnet"]
+
+    @patch("cli_assistant.console.print")
+    @patch("cli_assistant.console.input", return_value="1,2")
+    def test_discussion_flow_allows_multiple_agents(
+        self,
+        mock_input,
+        mock_print,
+    ):
+        installed = [
+            SimpleNamespace(
+                cli_id="claude-sonnet",
+                is_installed=True,
+                name="Claude",
+                version="1.0.0",
+            ),
+            SimpleNamespace(
+                cli_id="codex-o4-mini",
+                is_installed=True,
+                name="Codex",
+                version="1.0.0",
+            ),
+        ]
+
+        selected = _select_clis(installed, "discussion")
+
+        assert selected == ["claude-sonnet", "codex-o4-mini"]
