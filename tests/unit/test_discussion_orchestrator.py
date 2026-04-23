@@ -306,6 +306,44 @@ class TestRunDiscussionPhase:
         mock_consensus.assert_not_called()
         assert mock_input.call_count >= 1
 
+    @patch("lib.discussion_orchestrator.save_discussion")
+    @patch("lib.discussion_orchestrator.console.input")
+    def test_requirement_flow_empty_input_ends_when_no_unclear_questions(
+        self,
+        mock_input: MagicMock,
+        mock_save: MagicMock,
+        orchestrator: DiscussionOrchestrator,
+        sample_discussion: Discussion,
+    ):
+        phase1 = DiscussionPhase(
+            phase_type="independent",
+            phase_index=1,
+            rounds=[
+                DiscussionRound(
+                    round_num=1,
+                    responses={
+                        "claude-sonnet": "[CONVERGED] Goal: 生成需求文档",
+                    },
+                )
+            ],
+        )
+        sample_discussion.phases.append(phase1)
+        sample_discussion.flow = "requirement"
+        mock_input.return_value = ""
+
+        with patch.object(orchestrator, "_run_requirement_confirmation", return_value=""):
+            with patch.object(
+                orchestrator,
+                "_run_requirement_round",
+                return_value={"claude-sonnet": "[CONVERGED] Goal: 生成需求文档"},
+            ) as mock_round:
+                with patch.object(orchestrator, "_extract_unclear_points", return_value=[]):
+                    phase = orchestrator.run_discussion_phase(sample_discussion, max_rounds=3)
+
+        assert phase.phase_type == "discussion"
+        assert len(phase.rounds) == 1
+        mock_round.assert_called_once()
+
     def test_requirement_flow_uses_moderator_as_fallback_participant(
         self,
         orchestrator: DiscussionOrchestrator,

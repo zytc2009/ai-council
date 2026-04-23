@@ -95,11 +95,36 @@ def build_requirement_round_prompt(
     template_content: str,
     agent: AgentConfig,
     user_idea: str,
+    history: List[Dict],
     requirement_status_section: str,
     clarification_questions_section: str,
     user_feedbacks: List[str],
     round_num: int,
 ) -> str:
+    history_lines = ["## 既往讨论摘要"]
+    if history:
+        for round_data in history:
+            round_label = round_data.get("phase", "澄清讨论")
+            round_num_text = round_data.get("round", "未知")
+            history_lines.append(f"### 第 {round_num_text} 轮（{round_label}）")
+            for agent_name, response in round_data.get("responses", {}).items():
+                truncated = response[:300] + "..." if len(response) > 300 else response
+                history_lines.append(f"- **{agent_name}**: {truncated}")
+            history_lines.append("---")
+    else:
+        history_lines.append("（暂无历史）")
+    history_section = "\n".join(history_lines)
+
+    prior_feedbacks = user_feedbacks[:-1] if len(user_feedbacks) > 1 else []
+    feedback_lines = ["## 历次用户补充"]
+    if prior_feedbacks:
+        for idx, feedback in enumerate(prior_feedbacks, start=1):
+            truncated = feedback[:300] + "..." if len(feedback) > 300 else feedback
+            feedback_lines.append(f"- 第 {idx} 轮补充: {truncated}")
+    else:
+        feedback_lines.append("（暂无）")
+    user_feedback_history_section = "\n".join(feedback_lines)
+
     if user_feedbacks:
         user_feedback_section = user_feedbacks[-1]
     else:
@@ -109,6 +134,8 @@ def build_requirement_round_prompt(
         agent_name=agent.name,
         agent_strengths=agent.strengths,
         user_idea=user_idea,
+        history_section=history_section,
+        user_feedback_history_section=user_feedback_history_section,
         requirement_status_section=requirement_status_section,
         clarification_questions_section=clarification_questions_section,
         user_feedback_section=user_feedback_section,

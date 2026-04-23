@@ -164,6 +164,8 @@ class TestBuildSynthesisPrompt:
 class TestBuildRequirementRoundPrompt:
     def test_uses_only_summary_sections(self, agent: AgentConfig):
         template = (
+            "历史: {history_section}\n"
+            "用户补充历史: {user_feedback_history_section}\n"
             "状态: {requirement_status_section}\n"
             "问题: {clarification_questions_section}\n"
             "反馈: {user_feedback_section}\n"
@@ -172,23 +174,32 @@ class TestBuildRequirementRoundPrompt:
             template,
             agent,
             "主题",
+            history=[
+                {
+                    "round": 1,
+                    "phase": "澄清讨论",
+                    "responses": {"Claude": "上一轮讨论内容"},
+                }
+            ],
             requirement_status_section="- Goal: 已知",
             clarification_questions_section="- [Inputs] 输入来自哪里？",
-            user_feedbacks=["用户补充了输入来源"],
+            user_feedbacks=["上一轮用户补充", "用户补充了输入来源"],
             round_num=1,
         )
 
         assert "已知" in result
         assert "输入来自哪里" in result
         assert "用户补充了输入来源" in result
-        assert "history_section" not in result
+        assert "上一轮讨论内容" in result
+        assert "上一轮用户补充" in result
 
     def test_latest_user_feedback_wins(self, agent: AgentConfig):
-        template = "反馈: {user_feedback_section}"
+        template = "历史: {history_section}\n反馈: {user_feedback_section}"
         result = build_requirement_round_prompt(
             template,
             agent,
             "主题",
+            history=[],
             requirement_status_section="",
             clarification_questions_section="",
             user_feedbacks=["第一条反馈", "最新反馈"],

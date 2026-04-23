@@ -1008,7 +1008,8 @@ class DiscussionOrchestrator:
             # Optional user clarification
             console.print(
                 "\n[dim]可补充回答上面的问题（多行，空行结束）；"
-                "直接回车跳过；输入 d 结束并生成文档：[/dim]"
+                "直接回车跳过；若当前没有待澄清问题，直接回车即可结束并生成文档；"
+                "输入 d 也可结束并生成文档：[/dim]"
             )
             lines: List[str] = []
             while True:
@@ -1022,6 +1023,9 @@ class DiscussionOrchestrator:
                 if line == "" and lines:
                     break
                 if line == "":
+                    if not unclear:
+                        console.print("\n[dim]当前已无待澄清问题，结束讨论并生成文档...[/dim]\n")
+                        return phase
                     break
                 lines.append(line)
 
@@ -1123,6 +1127,7 @@ class DiscussionOrchestrator:
                 template_content=template,
                 agent=agent_cfg,
                 user_idea=discussion.user_idea,
+                history=history,
                 requirement_status_section=self._requirement_status_section(discussion),
                 clarification_questions_section=clarification_questions_section,
                 user_feedbacks=discussion.user_feedbacks,
